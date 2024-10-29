@@ -20,6 +20,7 @@ import "./usability_tweaks.css";
 import { shouldInitializeFeature, getFeatureOptions } from "../../core/options/options_storage";
 import { getUserWtId, getUserNumId } from "../../core/common";
 import "../../core/common.css";
+import { set } from "date-fns";
 
 function addSaveSearchFormDataButton() {
   const searchResultsP = $("span.large:contains('Search Results')").parent();
@@ -674,3 +675,71 @@ shouldInitializeFeature("usabilityTweaks").then((result) => {
     }); //getFeatureOptions
   }
 });
+
+/**
+ * Accepts URL parameters for private messages on profile pages
+ * @function acceptPMs
+ * @returns {void}
+ * @example
+ * acceptPMs();
+ * @description
+ * This function is called on profile pages to accept URL parameters for private messages.
+ * It checks if the page is a profile page, gets the profile ID, and looks for a private message button.
+ * If the URL has PMsubject and PMbody parameters, it fills in the subject and body of the private message.
+ */
+function acceptPMs() {
+  console.log("acceptPMs function called");
+  if (isProfilePage) {
+    console.log("This is a profile page");
+    const pageData = $("#pageData");
+    const profileId = pageData.data("mid");
+    console.log("Profile ID:", profileId);
+    let pmButtons = $(".privateMessageLink[data-who='" + profileId + "']");
+    if (pmButtons.length == 0) {
+      console.log("No private message button found");
+      return;
+    }
+    const pmButton = pmButtons.eq(0);
+    console.log("Private message button found:", pmButton);
+    const params = new URLSearchParams(window.location.search);
+    const PMsubject = params.get("PMsubject");
+    const PMbody = params.get("PMbody");
+    console.log("PMsubject:", PMsubject, "PMbody:", PMbody);
+    if (PMbody) {
+      let targetNode = document.body; // Replace with a closer parent if possible
+
+      // Options for the observer (which mutations to observe)
+      let config = { childList: true, subtree: true };
+
+      // Callback function to execute when mutations are observed
+      let callback = function (mutationsList, observer) {
+        for (let mutation of mutationsList) {
+          // Check the addedNodes property
+          for (let node of mutation.addedNodes) {
+            // Use the instanceof operator to ensure the added node is an Element
+            if (node instanceof Element) {
+              // Check if our target element exists within this node
+              let targetElement = node.querySelector("#privateMessage-comments");
+              if (targetElement) {
+                $("#privateMessage-comments").val(PMbody);
+                $("#privateMessage-subject").val(PMsubject);
+                observer.disconnect();
+              }
+            }
+          }
+        }
+      };
+
+      // Create an observer instance linked to the callback function
+      let observer = new MutationObserver(callback);
+
+      // Start observing the target node for configured mutations
+      observer.observe(targetNode, config);
+      pmButton[0].click();
+    }
+  } else {
+    console.log("This is not a profile page");
+  }
+}
+
+setTimeout(acceptPMs, 1000);
