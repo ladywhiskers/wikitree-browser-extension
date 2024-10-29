@@ -426,6 +426,7 @@ export function isNotArrowOrEnter(event) {
 
 export function CreateAutoSuggestionDiv(catTextbox) {
   const resultAutoTypeDiv = document.createElement("div");
+  resultAutoTypeDiv.id = "categoryManagementCatSuggestion";
   resultAutoTypeDiv.style.textAlign = "left";
   resultAutoTypeDiv.style.borderWidth = "1px";
   resultAutoTypeDiv.style.borderStyle = "solid";
