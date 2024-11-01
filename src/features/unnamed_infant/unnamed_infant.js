@@ -152,7 +152,6 @@ function findAge() {
   }
 
   let birthDateParsed = tryParseDate(birthDate, usDateFormats);
-  console.log(`Birth date parsed (US format): ${birthDateParsed}`);
 
   if (!birthDateParsed) {
     birthDateParsed = tryParseDate(birthDate, euDateFormats);

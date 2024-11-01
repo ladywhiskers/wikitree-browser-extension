@@ -262,7 +262,6 @@ export function addLoginButton(appId = "WBE") {
         loginButton.appendTo($("h1:contains('Connection Finder')"));
         returnURL = encodeURI(window.location.href.replace(/&action=connect/, ""));
       } else if (appId == "WBE_category_filters") {
-        console.log("here");
         loginButton.attr("id", "categoryFiltersLoginButton");
         loginButton.attr(
           "title",
@@ -270,7 +269,6 @@ export function addLoginButton(appId = "WBE") {
         );
         loginButton.appendTo($("#categoryFilterButtonsContainer"));
         returnURL = encodeURI(window.location.href);
-        console.log(returnURL);
       }
       loginButton.on("click", function (e) {
         e.preventDefault();

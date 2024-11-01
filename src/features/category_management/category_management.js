@@ -858,15 +858,6 @@ function OnCatALotClicked() {
 }
 
 async function OpenProfileForEditing(url, checkbox, parentToHide) {
-  /*
-  const response = await fetch(url);
-
-  console.log(response.status);
-  console.log(response.redirected);
-  console.log(response.url);
-  console.log(response.text());
-  console.log(response);
-  */
   const win = window.open(url);
   checkbox.checked = false;
   parentToHide.style.display = "none";
@@ -1077,7 +1068,6 @@ function PerformActualProfileChanges() {
     if (cat2) {
       summary += " and " + "'" + cat2 + "'";
     }
-    console.log("categoryManagementOptions: " + categoryManagementOptions);
     if (categoryManagementOptions?.customChangeSummary) {
       summary += " " + categoryManagementOptions.customChangeSummary;
     }

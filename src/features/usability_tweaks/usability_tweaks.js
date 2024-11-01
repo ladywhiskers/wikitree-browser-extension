@@ -254,7 +254,6 @@ function addRemoveMeButton() {
     `<button id="removeMeButton" title="Double-click to remove yourself as manager of this profile" class="button small">❌</button>`
   );
   const ids = getUserIds();
-  console.log("ids", ids);
   const thisUserWTID = ids.Name || getUserWtId();
   const thisUserId = ids.Id || getUserNumId();
 
@@ -272,7 +271,6 @@ function addRemoveMeButton() {
   if (profileManagerLink.length) {
     const profileManagerWTID = profileManagerLink.attr("href").split("/").pop();
 
-    console.log(profileManagerWTID, thisUserWTID);
     if (profileManagerWTID == thisUserWTID) {
       profileManagerLink.after(removeMeButton);
       $(`a[data-who='${thisUserId}']:contains(send)`).text("email");
@@ -688,23 +686,17 @@ shouldInitializeFeature("usabilityTweaks").then((result) => {
  * If the URL has PMsubject and PMbody parameters, it fills in the subject and body of the private message.
  */
 function acceptPMs() {
-  console.log("acceptPMs function called");
   if (isProfilePage) {
-    console.log("This is a profile page");
     const pageData = $("#pageData");
     const profileId = pageData.data("mid");
-    console.log("Profile ID:", profileId);
     let pmButtons = $(".privateMessageLink[data-who='" + profileId + "']");
     if (pmButtons.length == 0) {
-      console.log("No private message button found");
       return;
     }
     const pmButton = pmButtons.eq(0);
-    console.log("Private message button found:", pmButton);
     const params = new URLSearchParams(window.location.search);
     const PMsubject = params.get("PMsubject");
     const PMbody = params.get("PMbody");
-    console.log("PMsubject:", PMsubject, "PMbody:", PMbody);
     if (PMbody) {
       let targetNode = document.body; // Replace with a closer parent if possible
 
@@ -737,8 +729,6 @@ function acceptPMs() {
       observer.observe(targetNode, config);
       pmButton[0].click();
     }
-  } else {
-    console.log("This is not a profile page");
   }
 }
 

@@ -187,13 +187,6 @@ function centreImage(imgElement) {
   const left = scrollLeft + (windowWidth - imageWidth) / 2;
   const top = scrollTop + (windowHeight - imageHeight) / 2;
 
-  console.log("Image Width:", imageWidth);
-  console.log("Image Height:", imageHeight);
-  console.log("Window Width:", windowWidth);
-  console.log("Window Height:", windowHeight);
-  console.log("Calculated Left:", left);
-  console.log("Calculated Top:", top);
-
   imgElement.css({ left: left, top: top });
 }
 

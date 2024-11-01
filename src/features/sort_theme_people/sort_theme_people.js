@@ -39,9 +39,6 @@ async function init() {
   if (options.AddButtonForBigTable) {
     setTimeout(addComprehensiveMatchupButton, 1000);
   }
-  console.log("Comprehensive Matchup Button added.");
-  console.log("featuredConnectionsParagraph:", featuredConnectionsParagraph);
-  console.log("options.AddButtonForBigTable:", options.AddButtonForBigTable);
 }
 
 // Function to extract theme title and notables
@@ -181,20 +178,10 @@ function getProfilePersonInfo() {
 // Function to fetch and combine matchups from page and FeaturedMatrix
 async function fetchAndCombineMatchups() {
   try {
-    console.log("Fetching existing matchups from the page...");
     const { results: degreesArray, idToNameMap } = getDegreesFromPage();
-    console.log("Degrees from page:", degreesArray);
-    console.log("ID to Name Map:", idToNameMap);
-
-    console.log("Fetching new matchups from FeaturedMatrix...");
     const matrixData = await fetchFeaturedMatrix();
-    console.log("Transforming FeaturedMatrix data...");
     const featuredMatchups = transformMatrixToMatchups(matrixData, idToNameMap);
-    console.log("Featured matchups transformed:", featuredMatchups);
-
-    console.log("Combining existing and new matchups...");
     const combinedDegrees = degreesArray.concat(featuredMatchups);
-    console.log("Combined matchups:", combinedDegrees);
 
     return combinedDegrees;
   } catch (error) {
@@ -254,13 +241,11 @@ function getDegreesFromPage() {
 // Function to fetch FeaturedMatrix JSON
 async function fetchFeaturedMatrix() {
   try {
-    console.log("Fetching FeaturedMatrix data...");
     const response = await fetch("https://plus.wikitree.com/FeaturedMatrix.json?appID=Ian");
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
     const matrixData = await response.json();
-    console.log("FeaturedMatrix data fetched:", matrixData);
     return matrixData;
   } catch (error) {
     console.error("Error fetching FeaturedMatrix data:", error);
@@ -362,7 +347,6 @@ function buildComprehensiveMatchupTable(combinedData, themeTitle) {
     $(".aPopupButton").show();
     return;
   }
-  console.log("Starting buildComprehensiveMatchupTable...");
 
   if (!combinedData || combinedData.length === 0) {
     console.error("No combined data available.");
@@ -417,8 +401,6 @@ function buildComprehensiveMatchupTable(combinedData, themeTitle) {
     const average = count > 0 ? (total / count).toFixed(2) : 0;
     averageScores[notable.wikitree_id] = average;
   });
-
-  console.log("Average Scores:", averageScores);
 
   // Sort the notables based on total scores from lowest to highest for rows
   notablesArray.sort((a, b) => {
@@ -617,8 +599,6 @@ function buildComprehensiveMatchupTable(combinedData, themeTitle) {
   popup.find("td.empty").on("dblclick", function () {
     closePopup();
   });
-
-  console.log("Popup table displayed.");
 
   // Initially position the close button
   positionCloseButton(popup, closeBtn, widthButton);

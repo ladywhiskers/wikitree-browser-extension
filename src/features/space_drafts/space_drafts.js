@@ -58,7 +58,6 @@ class SpaceDrafts {
     $(".draft-button").off().remove();
 
     if (drafts.length === 0) {
-      console.log("No drafts available.");
       return;
     } else {
       // Reverse the drafts array before rendering buttons
@@ -91,23 +90,17 @@ class SpaceDrafts {
       const currentDraft = drafts[drafts.length - 1]; // Get the latest draft
       let draftContent = sanitizeContent(currentDraft.content);
 
-      console.log("Draft found for this page/section...");
-
       // If it's a page reload in Firefox and the content matches the draft, don't show the draft button
       if (this.isFirefox && this.isReload && draftContent === currentContent) {
-        console.log("Page was reloaded in Firefox, content matches the draft, no need for the draft button.");
         $("#viewDraftsButton").hide(); // Hide the drafts button
       } else if (draftContent === currentContent) {
         drafts.pop(); // Remove the latest draft if it's identical
         this.saveDrafts({ [this.pageId]: drafts });
-        console.log("Draft deleted as it matches the current content.");
         $("#viewDraftsButton").hide(); // Hide the drafts button if it matches
       } else {
-        console.log("Draft is different from current content, showing drafts button...");
         $("#viewDraftsButton").show();
       }
     } else {
-      console.log("No draft found for this page/section.");
       $("#viewDraftsButton").hide();
     }
   }
@@ -194,8 +187,6 @@ class SpaceDrafts {
         const deleteButtonText = drafts.length > 1 ? "Delete These Drafts" : "Delete Draft";
         $(".delete-all-drafts").text(deleteButtonText);
       }
-
-      console.log(`Draft ${index + 1} deleted.`);
     });
 
     $(document).on("click", ".diff-close-btn", (e) => {
@@ -223,7 +214,6 @@ class SpaceDrafts {
       $this.deleteAllDrafts(); // Delete all drafts for this page
       $(".draft-button").remove(); // Remove all draft buttons
       $(this).remove(); // Remove the "Delete All Drafts" button
-      console.log("All drafts deleted.");
     });
   }
 
@@ -234,15 +224,12 @@ class SpaceDrafts {
     const targetNode = document.querySelector("div.CodeMirror");
     const _isCodeMirrorEnabled = await isCodeMirrorEnabled();
     if (targetNode && _isCodeMirrorEnabled) {
-      console.log("CodeMirror is enabled, setting up MutationObserver...");
-
       // Clear previous observer if it exists
       if (this.codeMirrorObserver) {
         this.codeMirrorObserver.disconnect();
       }
 
       const observer = new MutationObserver(() => {
-        console.log("CodeMirror content changed, debouncing save...");
         this.debouncedSaveDraft(); // Call the debounced function
       });
 
@@ -255,7 +242,6 @@ class SpaceDrafts {
       this.codeMirrorObserver = observer; // Store the observer for later disconnection
     } else {
       // If CodeMirror is not enabled, fall back to observing `#wpTextbox1` directly
-      console.log("CodeMirror is not enabled, setting up input listener on #wpTextbox1...");
 
       // Re-attach the debounced listener to the text area
       this.$textArea.on("input.spaceDrafts", this.debouncedSaveDraft);
@@ -268,7 +254,6 @@ class SpaceDrafts {
 
     // If the content is empty, skip saving
     if (!content.trim()) {
-      console.log("Content is empty, skipping save.");
       return;
     }
 
