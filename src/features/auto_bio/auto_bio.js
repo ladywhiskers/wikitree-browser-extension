@@ -1003,9 +1003,11 @@ function childList(person, spouse) {
 }
 
 function sortPeopleByBirthDate(people) {
+  console.log("Before sorting:", people);
   people.sort((a, b) => {
     // First, compare by OrderBirthDate (removing dashes)
     const dateComparison = a.OrderBirthDate.replaceAll(/-/g, "") - b.OrderBirthDate.replaceAll(/-/g, "");
+    console.log(`Comparing ${a.OrderBirthDate} and ${b.OrderBirthDate}: ${dateComparison}`);
 
     if (dateComparison !== 0) {
       return dateComparison; // If dates are different, return the result of this comparison
@@ -1015,17 +1017,23 @@ function sortPeopleByBirthDate(people) {
     const birthDatePriority = {
       before: 1,
       certain: 2,
-      guess: 3,
-      after: 4,
-      "": 99, // Blank values or missing DataStatus.BirthDate should be sorted last
+      guess: 4,
+      after: 5,
+      "": 3, // Blank values or missing DataStatus.BirthDate should be sorted last
     };
 
     // Extract the status or use an empty string if missing
-    const aBirthStatus = birthDatePriority[a?.DataStatus?.BirthDate || ""] || 99;
-    const bBirthStatus = birthDatePriority[b?.DataStatus?.BirthDate || ""] || 99;
+    const aBirthStatus = birthDatePriority[a?.DataStatus?.BirthDate || ""] || 3;
+    const bBirthStatus = birthDatePriority[b?.DataStatus?.BirthDate || ""] || 3;
+    console.log(
+      `Comparing birth status ${a?.DataStatus?.BirthDate} and ${b?.DataStatus?.BirthDate}: ${
+        aBirthStatus - bBirthStatus
+      }`
+    );
 
     return aBirthStatus - bBirthStatus; // Sort by priority with 'before' first and 'after' last
   });
+  console.log("After sorting:", people);
 }
 
 export function siblingList() {
