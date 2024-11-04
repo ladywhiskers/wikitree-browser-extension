@@ -166,6 +166,7 @@ function getAppsMenuItems() {
       title: "Genealogietools.nl",
       url: `https://${mainDomain}/wiki/Space:Genealogietools.nl_-_WieWasWie_formatter`,
     },
+    { title: "Mystery Box", url: `https://apps.wikitree.com/apps/clarke11007/apps/mysteryBox.php` },
     { title: "Photo Lines", url: "https://apps.wikitree.com/apps/clarke11007/PhotoLines.php" },
     { title: "Profile Overview", url: "https://apps.wikitree.com/apps/beacall6/templates.php" },
     { title: "RootsSearch", url: "https://apps.wikitree.com/apps/york1423/rootssearch/" },
