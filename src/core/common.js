@@ -44,7 +44,8 @@ export function oncePerTab(action) {
 }
 
 oncePerTab((rootWindow) => {
-  // Since messages will be target a tab and not a window, we don't want to add multiple listeners if there is an iframe on the page.
+  // Since messages will be targeting a tab and not a window, we don't want to add multiple listeners if
+  // there is an iframe on the page.
   chrome.runtime.onMessage.addListener(backupRestoreListener);
 
   if (!WBE.isRelease) {
@@ -269,6 +270,7 @@ export function extractRelatives(rel, theRelation = false) {
     if (theRelation != false) {
       aPerson.Relation = theRelation;
     }
+    setAdjustedDates(aPerson);
     people.push(aPerson);
   });
   return people;
@@ -337,7 +339,7 @@ export function isOK(thing) {
   }
 }
 
-// Find good names to display (as the API doesn't return the same fields all profiles)
+// Find good names to display (as the API doesn't return the same fields in all profiles)
 export function displayName(fPerson) {
   if (fPerson != undefined) {
     let fName1 = "";
@@ -832,7 +834,7 @@ async function restoreIndexedDB(dbName, dbData) {
 }
 
 export function writeToDB(db, dbName, requestedStoreName, records) {
-  // Do some fiddling so we can restore older backups to the new DB versions
+  // Do some fiddling so we can restore older backups to the new DB versions.
   // CC7, distance, and relationship are the previous versions of those object
   // stores. The new ones are cc7Profiles, distance2 and relationship2 respectively.
   // NOTE: we don't check dbName because the storeNames currently are unique
@@ -953,65 +955,23 @@ function backupRestoreListener(request, sender, sendResponse) {
 
 export const treeImageURL = chrome.runtime.getURL("images/tree.gif");
 
-// async function addLogInLogOutMessage() {
-//   const theUser = getUserWtId();
-
-//   if (!theUser) {
-//     const theFeatures = {
-//       cc7Changes: "CC7 Changes",
-//       distanceAndRelationship: "Distance and Relationship",
-//       extraWatchlist: "Extra Watchlist",
-//     };
-//     const theFeaturesKeys = Object.keys(theFeatures);
-//     const theFeaturesArray = [];
-
-//     for (const feature of theFeaturesKeys) {
-//       const featureEnabled = await checkIfFeatureEnabled(feature);
-//       if (featureEnabled) {
-//         theFeaturesArray.push(theFeatures[feature]);
-//         console.log(`Feature ${feature} is enabled.`);
-//       }
-//     }
-
-//     let featuresMessage;
-//     if (theFeaturesArray.length > 1) {
-//       featuresMessage = theFeaturesArray.slice(0, -1).join(", ") + " and " + theFeaturesArray.slice(-1);
-//     } else {
-//       featuresMessage = theFeaturesArray[0];
-//     }
-
-//     const message = $(
-//       `<div id='logOutAndBackInMessage'>WBE: Please log in (or log out and back in) for <span id="theFeatures">${featuresMessage}</span> to work.</div>`
-//     );
-//     message.on("click", function () {
-//       $(this).remove();
-//     });
-//     if (theFeaturesArray.length > 0) {
-//       $("body").append(message);
-//       console.log("User is not logged in. Displaying message:", message.text());
-//       // Display the message for a few seconds
-//       setTimeout(function () {
-//         message.remove();
-//         console.log("Message removed.");
-//       }, 3000);
-//     }
-//   }
-// }
-
-// if (isMainDomain) {
-//   setTimeout(() => {
-//     addLogInLogOutMessage();
-//   }, 10000);
-// }
-
+/**
+ * @returns The numeric ID (i.e. the profile.Id field obtained from the API) of the currently logged in user
+ */
 export function getUserNumId() {
+  // We retrieve the ID from the "My WikiTree/Badges" menu item present when the user is logged in on any WT page.
   const href = $('body a[href*="Special:Badges"]').attr("href");
   if (!href) return null;
   const m = href.match(/u=(\d+)/);
   return m ? m[1] : null;
 }
 
+/**
+ *
+ * @returns The WikiTree ID (i.e. the profile.Name field obtained from the API) of the currently logged in user
+ */
 export function getUserWtId() {
+  // We retrieve the WtID from the "My WikiTree/Contributions" menu item present when the user is logged in on any WT page.
   const href = $('a[href*="Special:Contributions"]').attr("href");
   if (!href) return null;
   const m = href.match(/who=([^&]+)/);
@@ -1062,4 +1022,291 @@ export async function isLoggedIntoAPI(userNumId, appId) {
   console.log("API Login Status: ", loginStatus);
 
   return loginStatus?.clientLogin?.result == "ok";
+}
+
+/**
+ * Do the best effort possible to obtain the requested date of a profile, even if it is approximate and
+ * returns {date:, annotation:, display:}.
+ * It is assumed the date fields of the person profile are in the standard form returned by the WT API,
+ * namely 'YYYY-MMM-DD' or YYY0s if a decade field is used.
+ * A YYYY-MMM-00 date is adjusted to YYYY-MM-15, a YYYY-00-00 date to YYYY-07-02 and YYY0s to YYY5-01-01,
+ * i.e. more or less to the middle of each period.
+ * @param {*} person a person record retrieved from the API
+ * @param {*} whichDate One of "Birth", "Death", or "Marriage". Any other value will return a date of 0000-00-00.
+ *                      "Marriage" will return the oldest valid marriage date (if any).
+ * @returns an object {date: , annotation: , display: } where:
+ *          date - The requested date or '0000-00-00' if no date could be determined.
+ *          annotation - one of the symbols \~, <, >, or the empty string depending on whether the date is uncertain (~),
+ *                or is at most the given date (<), or at least the given date (>) or is accurate (empty string).
+ *          display - a string to display, excuding the annotation and excluding any adjustments that were made.
+ *
+ *          For birth and death dates, if they are not available, but ...DateDecade is, the latter will be taken and
+ *          converted to the middle of the decade. e.g. 1960s will be converted to 1965-01-01, but display will be 1960s.
+ *
+ *          Similarly any partial date like 1961-00-00 or 1962-02-00 will be converted to 1961-07-02 and 1962-02-15
+ *          respectively, with displays 1961 and 1962-02.
+ */
+export function getTheDate(person, whichDate) {
+  if (!["Birth", "Death", "Marriage"].includes(whichDate)) return { date: "0000-00-00", annotation: "", display: "" };
+  const dateName = whichDate + "Date";
+  let theDate = "0000-00-00";
+  let decade = "";
+  let dataStatus = "";
+
+  if (whichDate == "Marriage") {
+    if (person.hasOwnProperty("Spouses")) {
+      // find the oldest non-zero marriage date
+      let firstSpouseIdx = -1;
+      let firstMDateObj = dateObject(); // 9999-12-31
+      for (const [spouseId, spouseData] of Object.entries(person.Spouses)) {
+        const mDate = spouseData.MarriageDate || "0000-00-00";
+        const mDateObj = dateObject(mDate);
+        if (mDateObj - firstMDateObj < 0) {
+          firstMDateObj = mDateObj;
+          firstSpouseIdx = spouseId;
+        }
+      }
+      if (firstSpouseIdx >= 0) {
+        const mData = person.Spouses.at(firstSpouseIdx);
+        theDate = mData.MarriageDate || "0000-00-00";
+        dataStatus = mData.DataStatus;
+      }
+    }
+  } else {
+    theDate = person[dateName] || "0000-00-00";
+    if (theDate == "0000-00-00" || theDate.length != 10) {
+      theDate = "0000-00-00";
+      decade = person[`${dateName}Decade`];
+    }
+    dataStatus = person.DataStatus;
+  }
+
+  return formAdjustedDate(theDate, decade, dataStatus ? dataStatus[dateName] : "");
+}
+
+/**
+ *
+ * @param {*} date A date string in the form YYYY-MM-DD where any of the parts might be 0
+ *            (as might be returned from the API)
+ * @param {*} decade a decade field returnrd by the API in the form YYY0s, or the empty string
+ * @param {*} status an associated DataStatus field for the date as returned by the API
+ * @returns an object {date: , annotation: , display: } where:
+ *          date - The input date date or '0000-00-00' if empty or invalid
+ *          annotation - one of the symbols \~, <, >, or the empty string depending on whether the date is uncertain (~),
+ *                or is at most the given date (<), or at least the given date (>) or is accurate (empty string).
+ *          display - a string to display, excuding the annotation and excluding any adjustments that were made.
+ *
+ *          For birth and death dates, if they are not available, but ...DateDecade is, the latter will be taken and
+ *          converted to the middle of the decade. e.g. 1960s will be converted to 1965-01-01, but display will be 1960s.
+ *
+ *          Similarly any partial date like 1961-00-00 or 1962-02-00 will be converted to 1961-07-02 and 1962-02-15
+ *          respectively, with displays 1961 and 1962-02.
+ */
+export function formAdjustedDate(date, decade, status) {
+  let theDate = date || "0000-00-00";
+  let annotation = "";
+  let display = theDate;
+  if (theDate == "0000-00-00" || theDate.length != 10) {
+    if (decade && decade != "unknown") {
+      theDate = decade.replace(/0s/, "5-01-01");
+      annotation = "~";
+      display = decade;
+    } else {
+      theDate = "0000-00-00";
+      display = "";
+    }
+  }
+
+  if (theDate != "0000-00-00") {
+    // Adjust partial dates to the middle of the period they span,
+    // force annotation to ~, but keep the partial value for display
+    const dateBits = theDate.split("-");
+    if (dateBits[1] == "00") {
+      theDate = `${dateBits[0]}-07-02`;
+      annotation = "~";
+      display = dateBits[0];
+    } else if (dateBits[2] == "00") {
+      theDate = `${dateBits[0]}-${dateBits[1]}-15`;
+      annotation = "~";
+      display = dateBits[0] + "-" + dateBits[1];
+    }
+
+    // Adjust annotation based on the data status
+    if (status) {
+      if ((status == "certain" || status == "") && annotation != "~") annotation = "";
+      else if (status == "guess") annotation = "~";
+      else if (status == "before") annotation = `<${annotation}`;
+      else if (status == "after") annotation = `>${annotation}`;
+      else annotation = "~";
+    }
+  }
+  return { date: theDate, annotation: annotation, display: display };
+}
+
+/**
+ * Returns an "annotated age" with 3 values associated with a person's age at an event, namely
+ * {age: , annotation: , annotatedAge: }. The age may be negative.
+ * @param {*} birth an annotated birth date as returned by getTheDate(), i.e. {date: , annotation: }
+ *            where date is a string in the form YYYY-MM-DD where any of the parts might be 0
+ *            (as might be returned from the API) and annotation is one of ("", <, ~, >).
+ * @param {*} event An annotated event date object similar to the above.
+ * @returns {age: , annotation: , annotatedAge: } where:
+ *          age - "" if no age could be determined, otherwise the calculated age at death of the person, truncated
+ *                to whole years, is returned. e.g. if the calculated age is 13 years, 12 months and 30 days, 13 will
+ *                be returned.
+ *          annotation - one of the symbols \~, <, >, or the empty string depending on whether the age is uncertain (~),
+ *                is at most the given number (<), at least the given number (>), or is accurate (empty string).
+ *          annotatedAge - the concatenation of annotation and age.
+ */
+export function ageAtEvent(birth, event) {
+  let about = "";
+  let age = "";
+
+  if (birth.date != "0000-00-00" && event.date != "0000-00-00") {
+    age = getAgeInWholeYearsFromStrings(birth.date, event.date);
+  }
+
+  if (age !== "") {
+    about = statusOfDiff(birth.annotation, event.annotation);
+  }
+
+  return age === ""
+    ? { age: "", annotation: "", annotatedAge: "" }
+    : { age: age, annotation: about, annotatedAge: `${about}${age}` };
+}
+
+const DIFF_ANNOTATION = [
+  // Annotation of
+  // start \ end
+  //        \  .   <    >    ~    <~    >~
+  //         +---+----+----+----+-----+---------
+  /*    . */ ["", "<", ">", "~", "<~", ">~"],
+  /*    < */ [">", "~", ">", ">~", "~", ">~"],
+  /*    > */ ["<", "<", "~", "<~", "<~", "~"],
+  /*    ~ */ ["~", "<~", ">~", "~", "<~", ">~"],
+  /*   <~ */ [">~", "~", ">~", ">~", "~", ">~"],
+  /*   >~ */ ["<~", "<~", "~", "<~", "<~", "~"],
+];
+const ANNOTATIONS = ["", "<", ">", "~", "<~", ">~"];
+const ANNOTATION_ORDER = ["<~", "<", "", "~", ">", ">~"];
+const SORT_FACTOR = [-0.2, -0.1, 0.0, 0.1, 0.2, 0.3];
+
+/**
+ *
+ * @param {*} startAnnotation An annotated associated with an age as returned by (@link ageAtEvent}
+ * @param {*} endAnnotation An annotated associated with an age as returned by (@link ageAtEvent}
+ * @returns The annotation of the difference between the start and end (i.e. end - start).
+ */
+export function statusOfDiff(startAnnotation, endAnnotation) {
+  const sIdx = ANNOTATIONS.indexOf(startAnnotation);
+  const eIdx = ANNOTATIONS.indexOf(endAnnotation);
+  if (sIdx >= 0 && eIdx >= 0) {
+    return DIFF_ANNOTATION.at(sIdx).at(eIdx);
+  } else {
+    return "?";
+  }
+}
+
+/**
+ * Given an annotated age as returned by {@link getTheAge(person)}, return a number that can be used
+ * to sort annotated ages in a consistent fashion
+ * @param {*} annotatedAge
+ * @returns
+ */
+export function ageForSort(annotatedAge) {
+  let age = annotatedAge.age;
+  if (age === "") {
+    age = -9999;
+  } else {
+    const i = ANNOTATION_ORDER.indexOf(annotatedAge.annotation);
+    if (i >= 0) age += SORT_FACTOR.at(i);
+  }
+  return age;
+}
+
+/**
+ * Returns an "annotated age" with 3 values associated with a person's age at death, namely
+ * {age: , annotation: , annotatedAge: }. It is similar to calling
+ *   {@link ageAtEvent(getTheDate(person, "Birth"), getTheDate(person, "Death"))}
+ * except that the returned age will never be negative.
+ * @param {*} person a person record retrieved from the API
+ * @returns {age: , annotation: , annotatedAge: } where:
+ *          age - "" if no age could be determined, otherwise the calculated age at death of the person, truncated
+ *                to whole years is returned. e.g. if the calculated age is 13 years, 12 months and 30 days, 13 will
+ *                be returned.
+ *                If the calculated age would be negative due to incomplete or bad dates, e.g. birth = 1871-07-03 and
+ *                death = 1971, 0 is returned.
+ *          annotation - one of the symbols \~, <, >, or the empty string depending whether the age is uncertain (~),
+ *                is at most the given number (<), at least the given number (>), or is accurate (empty string).
+ *          annotatedAge - the concatenation of annotation and age.
+ */
+export function ageAtDeath(person) {
+  let diedAged = "";
+  let about = "";
+  const birth = person.hasOwnProperty("adjustedBirth") ? person.adjustedBirth : getTheDate(person, "Birth");
+  const death = person.hasOwnProperty("adjustedDeath") ? person.adjustedDeath : getTheDate(person, "Death");
+
+  if (birth.date != "0000-00-00" && death.date != "0000-00-00") {
+    diedAged = getAgeInWholeYearsFromStrings(birth.date, death.date);
+    if (diedAged < 0) {
+      // Make provision for e.g. birth = 1871-07-03 and death = 1971
+      // (or just plain bad dates)
+      diedAged = 0;
+    }
+  }
+
+  if (diedAged !== "") {
+    about = statusOfDiff(birth.annotation, death.annotation);
+  }
+
+  return diedAged === ""
+    ? { age: "", annotation: "", annotatedAge: "" }
+    : { age: diedAged, annotation: about, annotatedAge: `${about}${diedAged}` };
+}
+
+/**
+ * Calculate age given start and end date strings in the form YYYY-MM-DD
+ * @param {*} startDateStr e.g. birth date in the form YYYY-MM-DD
+ * @param {*} endDateStr  e.g. death date in the form YYYY-MM-DD
+ * @returns the age. This may be negative.
+ */
+export function getAgeInWholeYearsFromStrings(startDateStr, endDateStr) {
+  // must be valid date strings in the form YYYY-MM-DD
+  if (startDateStr == endDateStr) return 0;
+
+  const startDBits = startDateStr.split("-");
+  const endDBits = endDateStr.split("-");
+  let age = endDBits[0] - startDBits[0];
+  let monthDiff = endDBits[1] - startDBits[1];
+  if (monthDiff < 0 || (monthDiff === 0 && endDBits[2] < startDBits[2])) {
+    --age;
+  }
+  return age;
+}
+
+/**
+ * Add adjusteBirth and adjustedDeath as birth and and death date fields to the given person record
+ * retrieved from the API. The fields are constructed as described in {@link getTheDate(person)}.
+ * @param {*} person A profile record as retrieved from the API
+ */
+export function setAdjustedDates(person) {
+  person.adjustedBirth = getTheDate(person, "Birth");
+  person.adjustedDeath = getTheDate(person, "Death");
+}
+
+/**
+ * Convert a (numeric) date string of the form 'YYYY-MM-DD' into a JS Date object.
+ * @param {*} dateStr A numeric string in the form 'YYYY-MM-DD', 'YYYY-MM', 'YYYY', or 'YYYYs'
+ * @returns A corresponding Date object, except that 0000-00-00 will be converted to 9999-12-31
+ *          so that unknown dates, when sorted, will be last.
+ */
+function dateObject(dateStr) {
+  const parts = (dateStr || "9999-12-31").split("-");
+  // Unknown year goes last
+  if (parts[0] && parts[0] == 0) parts[0] = 9999;
+  if (parts[1] && parts[1] > 0) parts[1] -= 1;
+  if (parts.length == 1) {
+    parts[1] = 0;
+  }
+  return new Date(Date.UTC(...parts));
 }
