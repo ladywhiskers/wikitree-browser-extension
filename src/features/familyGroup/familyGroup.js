@@ -208,7 +208,6 @@ export function peopleToTable(kPeople) {
   kPeople.forEach(function (kPers) {
     if (kPers) {
       let rClass = "";
-      let isDecades = false;
       kPers.RelationShow = kPers.Relation;
       if (kPers.Relation == undefined || kPers.Active) {
         kPers.Relation = "Sibling";
@@ -216,28 +215,8 @@ export function peopleToTable(kPeople) {
         rClass = "self";
       }
 
-      let bDate;
-      if (kPers.BirthDate) {
-        bDate = kPers.BirthDate;
-      } else if (kPers.BirthDateDecade) {
-        bDate = kPers.BirthDateDecade.slice(0, -1) + "-00-00";
-        isDecades = true;
-      } else {
-        bDate = "0000-00-00";
-      }
-
-      let dDate;
-      if (kPers.DeathDate) {
-        dDate = kPers.DeathDate;
-      } else if (kPers.DeathDateDecade) {
-        if (kPers.DeathDateDecade == "unknown") {
-          dDate = "0000-00-00";
-        } else {
-          dDate = kPers.DeathDateDecade.slice(0, -1) + "-00-00";
-        }
-      } else {
-        dDate = "0000-00-00";
-      }
+      const bDate = kPers.adjustedBirth;
+      const dDate = kPers.adjustedDeath;
 
       if (kPers.BirthLocation == null || kPers.BirthLocation == undefined) {
         kPers.BirthLocation = "";
@@ -250,7 +229,7 @@ export function peopleToTable(kPeople) {
       if (kPers.MiddleName == null) {
         kPers.MiddleName = "";
       }
-      const oName = displayName(kPers)[0];
+      let oName = displayName(kPers)[0];
 
       if (kPers.Relation) {
         // The relation is stored as "Parents", "Spouses", etc., so...
@@ -260,19 +239,11 @@ export function peopleToTable(kPeople) {
         }
       }
       if (oName) {
-        let oBDate = ymdFix(bDate);
-        let oDDate = ymdFix(dDate);
-        if (isDecades == true) {
-          oBDate = kPers.BirthDateDecade;
-          if (oDDate != "") {
-            oDDate = kPers.DeathDateDecade;
-          }
-        }
         const aLine = $(
           "<tr data-name='" +
             escapeHtml(kPers.Name) +
             "' data-birthdate='" +
-            bDate.replaceAll(/-/g, "") +
+            bDate.date.replaceAll(/-/g, "") +
             "' data-relation='" +
             escapeHtml(kPers.Relation) +
             "' class='" +
@@ -288,11 +259,11 @@ export function peopleToTable(kPeople) {
             "'>" +
             escapeHtml(oName) +
             "</td><td class='aDate'>" +
-            escapeHtml(oBDate) +
+            escapeHtml(bDate.display) +
             "</td><td>" +
             escapeHtml(kPers.BirthLocation) +
             "</td><td class='aDate'>" +
-            escapeHtml(oDDate) +
+            escapeHtml(dDate.display) +
             "</td><td>" +
             escapeHtml(kPers.DeathLocation) +
             "</td></tr>"

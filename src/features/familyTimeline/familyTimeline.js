@@ -5,7 +5,15 @@ Created By: Ian Beacall (Beacall-6)
 import * as $ from "jquery";
 import "jquery-ui/ui/widgets/draggable";
 import { getRelatives } from "wikitree-js";
-import { createProfileSubmenuLink, extractRelatives, isOK } from "../../core/common";
+import {
+  ageAtEvent,
+  createProfileSubmenuLink,
+  extractRelatives,
+  formAdjustedDate,
+  isOK,
+  setAdjustedDates,
+  statusOfDiff,
+} from "../../core/common";
 import { shouldInitializeFeature } from "../../core/options/options_storage";
 import { getHighestZindex } from "../familyGroup/familyGroup";
 import { mainDomain } from "../../core/pageType";
@@ -30,26 +38,15 @@ shouldInitializeFeature("familyTimeline").then((result) => {
   }
 });
 
-// Get a year from the person's data
-function getTheYear(theDate, ev, person) {
-  if (!isOK(theDate)) {
-    if (ev == "Birth" || ev == "Death") {
-      theDate = person[ev + "DateDecade"];
-    }
-  }
-  const theDateM = theDate.match(/[0-9]{4}/);
-  if (isOK(theDateM)) {
-    return parseInt(theDateM[0]);
-  } else {
-    return false;
-  }
-}
+const RIBBON = "&#x1F397;";
 
 // Convert a date to YYYY-MM-DD
 function dateToYMD(enteredDate) {
   let enteredD;
   if (enteredDate.match(/[0-9]{3,4}-[0-9]{2}-[0-9]{2}/)) {
     enteredD = enteredDate;
+  } else if (enteredDate.match(/[0-9]{3,4}-[0-9]{2}/)) {
+    enteredD = enteredDate + "-00";
   } else {
     let eDMonth = "00";
     let eDYear = enteredDate.match(/[0-9]{3,4}/);
@@ -205,7 +202,7 @@ export function timeline(id = false) {
       "Touched",
       "DataStatus",
       "Derived.BirthName",
-      "Bio",
+      "Templates",
     ];
     if (!id) {
       id = $("a.pureCssMenui0 span.person").text();
@@ -222,6 +219,7 @@ export function timeline(id = false) {
       { appId: "WBE_familyTimeline" }
     ).then((personData) => {
       const person = personData[0];
+      setAdjustedDates(person);
       const parents = extractRelatives(person.Parents, "Parent");
       const siblings = extractRelatives(person.Siblings, "Sibling");
       const spouses = extractRelatives(person.Spouses, "Spouse");
@@ -237,54 +235,49 @@ export function timeline(id = false) {
         }
       });
       let familyFacts = [];
-      //const startDate = getTheYear(person.BirthDate, "Birth", person);
       // Get all BMD events for each family member
       const bmdEvents = ["Birth", "Death", "marriage"];
-      family.forEach(function (aPerson) {
+      family.forEach(function (evPerson) {
         bmdEvents.forEach(function (ev) {
           let evDate = "";
           let evLocation;
-          if (aPerson[ev + "Date"]) {
-            evDate = aPerson[ev + "Date"];
-            evLocation = aPerson[ev + "Location"];
-          } else if (aPerson[ev + "DateDecade"]) {
-            evDate = aPerson[ev + "DateDecade"];
-            evLocation = aPerson[ev + "Location"];
-          }
           if (ev == "marriage") {
-            if (aPerson[ev + "_date"]) {
-              evDate = aPerson[ev + "_date"];
-              evLocation = aPerson[ev + "_location"];
+            if (evPerson["marriage_date"]) {
+              evDate = formAdjustedDate(evPerson.marriage_date, "", evPerson["data_status"]?.marriage_date || "");
+              evLocation = evPerson[ev + "_location"];
             }
+          } else if (evPerson[ev + "Date"]) {
+            evDate = evPerson[`adjusted${ev}`];
+            evLocation = evPerson[ev + "Location"];
           }
-          if (aPerson.Relation) {
-            const theRelation = aPerson.Relation.replace(/s$/, "").replace(/ren$/, "");
-            const gender = aPerson.Gender;
-            if (theRelation == "Child") {
-              aPerson.Relation = mapGender(gender, "son", "daughter", "child");
-            } else if (theRelation == "Sibling") {
-              aPerson.Relation = mapGender(gender, "brother", "sister", "sibling");
-            } else if (theRelation == "Parent") {
-              aPerson.Relation = mapGender(gender, "father", "mother", "parent");
-            } else if (theRelation == "Spouse") {
-              aPerson.Relation = mapGender(gender, "husband", "wife", "spouse");
-            } else {
-              aPerson.Relation = theRelation;
+          if (evDate.date != "" && evDate.date != "0000-00-00" && isOK(evDate.date)) {
+            if (evPerson.Relation) {
+              const theRelation = evPerson.Relation.replace(/s$/, "").replace(/ren$/, "");
+              const gender = evPerson.Gender;
+              if (theRelation == "Child") {
+                evPerson.Relation = mapGender(gender, "son", "daughter", "child");
+              } else if (theRelation == "Sibling") {
+                evPerson.Relation = mapGender(gender, "brother", "sister", "sibling");
+              } else if (theRelation == "Parent") {
+                evPerson.Relation = mapGender(gender, "father", "mother", "parent");
+              } else if (theRelation == "Spouse") {
+                evPerson.Relation = mapGender(gender, "husband", "wife", "spouse");
+              } else {
+                evPerson.Relation = theRelation;
+              }
             }
-          }
-          if (evDate != "" && evDate != "0000" && isOK(evDate)) {
-            let fName = aPerson.FirstName;
-            if (!aPerson.FirstName) {
-              fName = aPerson.RealName;
+            let fName = evPerson.FirstName;
+            if (!evPerson.FirstName) {
+              fName = evPerson.RealName;
             }
-            let bDate = aPerson.BirthDate;
-            if (!aPerson.BirthDate) {
-              bDate = aPerson.BirthDateDecade;
-            }
-            let mBio = aPerson.bio;
-            if (!aPerson.bio) {
-              mBio = "";
-            }
+            // let bDate = aPerson.BirthDate;
+            // if (!aPerson.BirthDate) {
+            //   bDate = aPerson.BirthDateDecade;
+            // }
+            // let mBio = aPerson.bio;
+            // if (!aPerson.bio) {
+            //   mBio = "";
+            // }
             if (evLocation == undefined) {
               evLocation = "";
             }
@@ -292,19 +285,18 @@ export function timeline(id = false) {
               eventDate: evDate,
               location: evLocation,
               firstName: fName,
-              LastNameAtBirth: aPerson.LastNameAtBirth,
-              lastNameCurrent: aPerson.LastNameCurrent,
-              birthDate: bDate,
-              relation: aPerson.Relation,
-              bio: mBio,
+              LastNameAtBirth: evPerson.LastNameAtBirth,
+              lastNameCurrent: evPerson.LastNameCurrent,
+              birthDate: evPerson.adjustedBirth,
+              relation: evPerson.Relation,
               evnt: ev,
-              wtId: aPerson.Name,
+              wtId: evPerson.Name,
             });
           }
         });
         // Look for military events in bios
-        if (aPerson.bio) {
-          const tlTemplates = aPerson.bio.match(/\{\{[^]*?\}\}/gm);
+        const tlTemplates = evPerson.Templates;
+        if (tlTemplates && tlTemplates.length > 0) {
           if (tlTemplates != null) {
             const warTemplates = [
               "Creek War",
@@ -321,74 +313,98 @@ export function timeline(id = false) {
               "World War II",
             ];
             tlTemplates.forEach(function (aTemp) {
-              let evDate = "";
               let evLocation = "";
-              let ev = "";
               let evDateStart = "";
               let evDateEnd = "";
               let evStart;
               let evEnd;
-              aTemp = aTemp.replaceAll(/[{}]/g, "");
-              const bits = aTemp.split("|");
-              const templateTitle = bits[0].replaceAll(/\n/g, "").trim();
-              bits.forEach(function (aBit) {
-                const aBitBits = aBit.split("=");
-                const aBitField = aBitBits[0].trim();
-                if (aBitBits[1]) {
-                  const aBitFact = aBitBits[1].trim().replaceAll(/\n/g, "");
-                  if (warTemplates.includes(templateTitle) && isOK(aBitFact)) {
-                    if (aBitField == "startdate") {
-                      evDateStart = dateToYMD(aBitFact);
-                      evStart = "joined " + templateTitle;
-                    }
-                    if (aBitField == "enddate") {
-                      evDateEnd = dateToYMD(aBitFact);
-                      evEnd = "left " + templateTitle;
-                    }
-                    if (aBitField == "enlisted") {
-                      evDateStart = dateToYMD(aBitFact);
-                      evStart = "enlisted for " + templateTitle.replace("american", "American");
-                    }
-                    if (aBitField == "discharged") {
-                      evDateEnd = dateToYMD(aBitFact);
-                      evEnd = "discharged from " + templateTitle.replace("american", "American");
-                    }
-                    if (aBitField == "branch") {
-                      evLocation = aBitFact;
+              const templateTitle = aTemp["name"];
+              if (templateTitle && !warTemplates.includes(templateTitle)) return;
+
+              let the = "the ";
+              const lowerTitle = templateTitle.toLowerCase();
+              if (lowerTitle.startsWith("the") || lowerTitle.startsWith("world")) the = "";
+              const params = aTemp["params"];
+              if (params) {
+                Object.entries(params).forEach(([param, value]) => {
+                  const paramValue = value?.trim()?.replaceAll(/\n/g, "");
+                  // These dates are not necessarily in YYYY-MM-DD format so we need to convert them first
+                  if (isOK(paramValue)) {
+                    if (param == "startdate") {
+                      evDateStart = formAdjustedDate(dateToYMD(paramValue));
+                      evStart = `joined ${the}` + templateTitle;
+                    } else if (param == "enddate") {
+                      evDateEnd = formAdjustedDate(dateToYMD(paramValue));
+                      evEnd = `left ${the}` + templateTitle;
+                    } else if (param == "enlisted") {
+                      evDateStart = formAdjustedDate(dateToYMD(paramValue));
+                      evStart = `enlisted in ${the}` + templateTitle.replace("american", "American");
+                    } else if (param == "discharged") {
+                      evDateEnd = formAdjustedDate(dateToYMD(paramValue));
+                      evEnd = `discharged from ${the}` + templateTitle.replace("american", "American");
+                    } else if (param == "branch") {
+                      evLocation = paramValue;
                     }
                   }
-                }
-              });
-              if (isOK(evDateStart)) {
-                evDate = evDateStart;
-                ev = evStart;
-                familyFacts.push({
-                  eventDate: evDate,
-                  location: evLocation,
-                  firstName: aPerson.FirstName,
-                  LastNameAtBirth: aPerson.LastNameAtBirth,
-                  lastNameCurrent: aPerson.LastNameCurrent,
-                  birthDate: aPerson.BirthDate,
-                  relation: aPerson.Relation,
-                  bio: aPerson.bio,
-                  evnt: ev,
-                  wtId: aPerson.Name,
                 });
               }
-              if (isOK(evDateEnd)) {
-                evDate = evDateEnd;
-                ev = evEnd;
+
+              // aTemp = aTemp.replaceAll(/[{}]/g, "");
+              // const bits = aTemp.split("|");
+              // const templateTitle = bits[0].replaceAll(/\n/g, "").trim();
+              // bits.forEach(function (aBit) {
+              //   const aBitBits = aBit.split("=");
+              //   const aBitField = aBitBits[0].trim();
+              //   if (aBitBits[1]) {
+              //     const aBitFact = aBitBits[1].trim().replaceAll(/\n/g, "");
+              //     if (warTemplates.includes(templateTitle) && isOK(aBitFact)) {
+              //       if (aBitField == "startdate") {
+              //         evDateStart = dateToYMD(aBitFact);
+              //         evStart = "joined " + templateTitle;
+              //       }
+              //       if (aBitField == "enddate") {
+              //         evDateEnd = dateToYMD(aBitFact);
+              //         evEnd = "left " + templateTitle;
+              //       }
+              //       if (aBitField == "enlisted") {
+              //         evDateStart = dateToYMD(aBitFact);
+              //         evStart = "enlisted for " + templateTitle.replace("american", "American");
+              //       }
+              //       if (aBitField == "discharged") {
+              //         evDateEnd = dateToYMD(aBitFact);
+              //         evEnd = "discharged from " + templateTitle.replace("american", "American");
+              //       }
+              //       if (aBitField == "branch") {
+              //         evLocation = aBitFact;
+              //       }
+              //     }
+              //   }
+              // });
+              if (evDateStart && isOK(evDateStart.date)) {
                 familyFacts.push({
-                  eventDate: evDate,
+                  eventDate: evDateStart,
                   location: evLocation,
-                  firstName: aPerson.FirstName,
-                  LastNameAtBirth: aPerson.LastNameAtBirth,
-                  lastNameCurrent: aPerson.LastNameCurrent,
-                  birthDate: aPerson.BirthDate,
-                  relation: aPerson.Relation,
-                  bio: aPerson.bio,
-                  evnt: ev,
-                  wtId: aPerson.Name,
+                  firstName: evPerson.FirstName,
+                  LastNameAtBirth: evPerson.LastNameAtBirth,
+                  lastNameCurrent: evPerson.LastNameCurrent,
+                  birthDate: evPerson.adjustedBirth,
+                  relation: evPerson.Relation,
+                  evnt: evStart,
+                  wtId: evPerson.Name,
+                });
+              }
+              if (evDateEnd && isOK(evDateEnd)) {
+                familyFacts.push({
+                  eventDate: evDateEnd,
+                  location: evLocation,
+                  firstName: evPerson.FirstName,
+                  LastNameAtBirth: evPerson.LastNameAtBirth,
+                  lastNameCurrent: evPerson.LastNameCurrent,
+                  birthDate: evPerson.adjustedBirth,
+                  relation: evPerson.Relation,
+                  bio: evPerson.bio,
+                  evnt: evEnd,
+                  wtId: evPerson.Name,
                 });
               }
             });
@@ -397,7 +413,7 @@ export function timeline(id = false) {
       });
       // Sort the events
       familyFacts.sort((a, b) => {
-        return a.eventDate.localeCompare(b.eventDate);
+        return a.eventDate.date.localeCompare(b.eventDate.date);
       });
       if (!person.FirstName) {
         person.FirstName = person.RealName;
@@ -421,58 +437,80 @@ export function timeline(id = false) {
         aTimeline.css({ top: window.pointerY - 30, left: 10 });
         aTimeline.css("z-index", getHighestZindex() + 1);
       }
-      let bpDead = false;
-      let bpDeadAge;
+      let tlpDead = false;
+      let tlpDeadAge;
 
       familyFacts.forEach(function (aFact) {
         // Add events to the table
         const isEventForBioPerson = aFact.wtId == person.Name;
-        const showDate = aFact.eventDate.replace("-00-00", "").replace("-00", "");
-        const tlDate = "<td class='tlDate'>" + showDate + "</td>";
-        let aboutAge = "";
-        let bpBdate = person.BirthDate;
-        if (!person.BirthDate) {
-          bpBdate = person.BirthDateDecade.replace(/0s/, "5");
-        }
-        let hasBdate = true;
-        if (bpBdate == "0000-00-00") {
-          hasBdate = false;
-        }
-        const bpBD = getApproxDate(bpBdate);
-        const evDate = getApproxDate(aFact.eventDate);
-        const aPersonBD = getApproxDate(aFact.birthDate);
-        if (bpBD.Approx == true) {
-          aboutAge = "~";
-        }
-        if (evDate.Approx == true) {
-          aboutAge = "~";
-        }
-        const bpAgeAtEvent = getAge(new Date(bpBD.Date), new Date(evDate.Date));
-        let bpAge;
-        if (bpAgeAtEvent == 0) {
-          bpAge = "";
-        } else if (bpAgeAtEvent < 0) {
-          bpAge = `–${-bpAgeAtEvent}`;
+        const tlDate = "<td class='tlDate'>" + aFact.eventDate.display + "</td>";
+        const tlPersonBirth = person.adjustedBirth;
+        const eventDate = aFact.eventDate;
+        const evPersonBirth = aFact.birthDate;
+        const tlpAgeAtEvent = ageAtEvent(tlPersonBirth, eventDate);
+        let renderedAgeAtEvent = "";
+
+        // let aboutAge = "";
+        // let bpBdate = person.BirthDate;
+        // if (!person.BirthDate) {
+        //   bpBdate = person.BirthDateDecade.replace(/0s/, "5");
+        // }
+        // let hasBdate = true;
+        // if (bpBdate == "0000-00-00") {
+        //   hasBdate = false;
+        // }
+        // const bpBD = getApproxDate(bpBdate);
+        // const evDate = getApproxDate(aFact.eventDate);
+        // const aPersonBD = getApproxDate(aFact.birthDate);
+        // if (bpBD.Approx == true) {
+        //   aboutAge = "~";
+        // }
+        // if (evDate.Approx == true) {
+        //   aboutAge = "~";
+        // }
+        // const bpAgeAtEvent = getAge(new Date(bpBD.Date), new Date(evDate.Date));
+        // let bpAge;
+        // if (bpAgeAtEvent == 0) {
+        //   bpAge = "";
+        // } else if (bpAgeAtEvent < 0) {
+        //   bpAge = `–${-bpAgeAtEvent}`;
+        // } else {
+        //   bpAge = `${bpAgeAtEvent}`;
+        // }
+        if (tlpDead == true) {
+          const theDiff = parseInt(tlpAgeAtEvent.age - tlpDeadAge.age);
+          const diffAnnotation = statusOfDiff(tlpDeadAge.annotation, tlpAgeAtEvent.annotation);
+          renderedAgeAtEvent = `${RIBBON}+ ${diffAnnotation}${theDiff}`;
+        } else if (isEventForBioPerson && aFact.evnt == "Birth") {
+          renderedAgeAtEvent = "";
         } else {
-          bpAge = `${bpAgeAtEvent}`;
+          renderedAgeAtEvent = tlpAgeAtEvent.annotatedAge;
         }
-        if (bpDead == true) {
-          const theDiff = parseInt(bpAgeAtEvent - bpDeadAge);
-          bpAge = "&#x1F397;+ " + theDiff;
-        }
-        let theBPAge;
-        if (aboutAge != "" && bpAge != "") {
-          theBPAge = "(" + bpAge + ")";
-        } else {
-          theBPAge = bpAge;
-        }
-        if (hasBdate == false) {
-          theBPAge = "";
-        }
+        // if (tlpDead == true) {
+        //   const theDiff = parseInt(bpAgeAtEvent - tlpDeadAge);
+        //   bpAge = "&#x1F397;+ " + theDiff;
+        // }
+        // let theBPAge;
+        // if (aboutAge != "" && bpAge != "") {
+        //   theBPAge = "(" + bpAge + ")";
+        // } else {
+        //   theBPAge = bpAge;
+        // }
+        // if (hasBdate == false) {
+        //   theBPAge = "";
+        // }
+        // const tlBioAge =
+        //   "<td class='tlBioAge'>" +
+        //   (aFact.evnt == "Death" && aFact.wtId == person.Name ? "&#x1F397; " : "") +
+        //   theBPAge +
+        //   "</td>";
+        // if (aFact.relation == undefined || isEventForBioPerson) {
+        //   aFact.relation = "";
+        // }
         const tlBioAge =
           "<td class='tlBioAge'>" +
-          (aFact.evnt == "Death" && aFact.wtId == person.Name ? "&#x1F397; " : "") +
-          theBPAge +
+          (aFact.evnt == "Death" && aFact.wtId == person.Name ? `${RIBBON} ` : "") +
+          renderedAgeAtEvent +
           "</td>";
         if (aFact.relation == undefined || isEventForBioPerson) {
           aFact.relation = "";
@@ -489,19 +527,25 @@ export function timeline(id = false) {
         const tlFirstName = "<a href='https://" + mainDomain + "/wiki/" + aFact.wtId + "'>" + fNames + "</a>";
         const tlEventLocation = "<td class='tlEventLocation'>" + aFact.location + "</td>";
 
-        if (aPersonBD.Approx == true) {
-          aboutAge = "~";
-        }
-        let aPersonAge = getAge(new Date(aPersonBD.Date), new Date(evDate.Date));
-        if (aPersonAge == 0 || aPersonBD.Date.match(/0000/) != null) {
-          aPersonAge = "";
-          aboutAge = "";
-        }
-        let theAge;
-        if (aboutAge != "" && aPersonAge != "") {
-          theAge = "(" + aPersonAge + ")";
-        } else {
-          theAge = aPersonAge;
+        // if (aPersonBD.Approx == true) {
+        //   aboutAge = "~";
+        // }
+        // let aPersonAge = getAge(new Date(aPersonBD.Date), new Date(evDate.Date));
+        // if (aPersonAge == 0 || aPersonBD.Date.match(/0000/) != null) {
+        //   aPersonAge = "";
+        //   aboutAge = "";
+        // }
+        // let theAge;
+        // if (aboutAge != "" && aPersonAge != "") {
+        //   theAge = "(" + aPersonAge + ")";
+        // } else {
+        //   theAge = aPersonAge;
+        // }
+
+        const evPersonAge = ageAtEvent(evPersonBirth, eventDate);
+        let renderedEvpAge = evPersonAge.annotatedAge;
+        if (evPersonAge.age == 0 || evPersonBirth.date.match(/0000/) != null) {
+          renderedEvpAge = "";
         }
 
         let descr;
@@ -511,12 +555,15 @@ export function timeline(id = false) {
             " of " +
             (relation == "" ? relation : relation + ", ") +
             tlFirstName +
-            (theAge == "" ? "" : ", " + theAge);
+            (renderedEvpAge == "" ? "" : ", " + renderedEvpAge);
         } else {
           const who =
             relation == ""
               ? tlFirstName
-              : capitalizeFirstLetter(relation) + " " + tlFirstName + (theAge == "" ? "" : ", " + theAge + ",");
+              : capitalizeFirstLetter(relation) +
+                " " +
+                tlFirstName +
+                (renderedEvpAge == "" ? "" : ", " + renderedEvpAge + ",");
           descr = who + " " + eventName;
         }
 
@@ -532,8 +579,8 @@ export function timeline(id = false) {
         );
         aTimeline.find("tbody").append(tlTR);
         if (aFact.evnt == "Death" && aFact.wtId == person.Name) {
-          bpDead = true;
-          bpDeadAge = bpAgeAtEvent;
+          tlpDead = true;
+          tlpDeadAge = tlpAgeAtEvent;
         }
       });
       aTimeline.show();

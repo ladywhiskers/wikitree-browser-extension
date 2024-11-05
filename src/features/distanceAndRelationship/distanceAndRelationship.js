@@ -282,8 +282,8 @@ function commonAncestorText(commonAncestors) {
     const thisAncestorType = ancestorType(
       commonAncestor.path2Length - 1,
       commonAncestor.ancestor.mGender
-    ).toLowerCase();
-    if (!ancestorsAdded.includes(commonAncestor.ancestor.mName)) {
+    )?.toLowerCase();
+    if (thisAncestorType && !ancestorsAdded.includes(commonAncestor.ancestor.mName)) {
       ancestorTextOut += `<li>Your ${myAncestorType},
       <a href="https://${mainDomain}/wiki/${commonAncestor.ancestor.mName}">${commonAncestor.ancestor.mDerived.LongNameWithDates}</a>,
       is ${possessiveAdj} ${thisAncestorType}.</li>`;
@@ -405,11 +405,13 @@ async function addDistance(data) {
     window.distance = data.path.length - 1;
     const profileName = $("h1").first().find("span[itemprop='name']").text();
     if (window.distance > 0 && $("#degreesFromYou").length == 0) {
-      $("h1").first().append(
-        $(
-          `<span id='distanceFromYou' title='${profileName} is ${window.distance} degrees from you.'>${window.distance}°</span>`
-        )
-      );
+      $("h1")
+        .first()
+        .append(
+          $(
+            `<span id='distanceFromYou' title='${profileName} is ${window.distance} degrees from you.'>${window.distance}°</span>`
+          )
+        );
     }
     const connectionFinderDBOpenReq = window.indexedDB.open(CONNECTION_DB_NAME, CONNECTION_DB_VERSION);
     connectionFinderDBOpenReq.onsuccess = function (event) {
