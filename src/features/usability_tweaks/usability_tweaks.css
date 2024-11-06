@@ -59,7 +59,7 @@ x.closeBioPopup {
   position: absolute;
   top: 5px;
   right: 5px;
-  font-size: 0.8em;
+  font-size: 1em;
   background: none;
   border: none;
   color: red;
@@ -73,4 +73,5 @@ x.closeBioPopup {
   padding: 0.2em 0.5em;
   margin-right: 0.5em;
   cursor: pointer;
+  float: right;
 }

@@ -806,7 +806,7 @@ async function getBios() {
       // Prepend the button to the parent element
       $(this)
         .parent()
-        .prepend(
+        .append(
           `<button class="getBio" data-id="${String(bio.Id)}">
             ${bio.Name}
           </button>`
@@ -834,6 +834,9 @@ async function getBios() {
   // Close button for the popup
   $(document).on("click", ".closeBioPopup", function () {
     $(this).parent().remove();
+  });
+  $(document).on("dblclick", ".bioPopup", function () {
+    $(this).remove();
   });
 
   // Debugging output
