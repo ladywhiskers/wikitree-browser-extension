@@ -20,7 +20,8 @@ import "./usability_tweaks.css";
 import { shouldInitializeFeature, getFeatureOptions } from "../../core/options/options_storage";
 import { getUserWtId, getUserNumId } from "../../core/common";
 import "../../core/common.css";
-import { set } from "date-fns";
+import { getWikiTreePage } from "../../core/API/wwwWikiTree";
+import { WikiTreeAPI } from "../../core/API/WikiTreeAPI";
 
 function addSaveSearchFormDataButton() {
   const searchResultsP = $("span.large:contains('Search Results')").parent();
@@ -733,3 +734,133 @@ function acceptPMs() {
 }
 
 setTimeout(acceptPMs, 1000);
+
+/* Rangering */
+async function getNewestPre1700People() {
+  // Check if the list of pre-1700 profiles is already stored in localStorage
+  const pre1700 = localStorage.getItem("pre1700");
+  if (pre1700) {
+    const pre1700Object = JSON.parse(pre1700);
+    // If the list is less than a day old, use it
+    if (new Date().getTime() - pre1700Object.timestamp < 86400000) {
+      return pre1700Object.profileIDs;
+    }
+  }
+  const profileIDs = [];
+  // Get the page with the list of pre-1700 profiles
+  const badgePage1 = await getWikiTreePage("Rangers", "index.php", "title=Special:Badges&b=pre_1700");
+  console.log(badgePage1);
+  // Make a DOM object of the page and find all the links like this: <span class="large"><a href="/wiki/Hill-64008" target="_blank">Sandy (Hill) McCartain</a></span>
+  const badgePage1DOM = new DOMParser().parseFromString(badgePage1, "text/html");
+  const links = badgePage1DOM.querySelectorAll("span.large a[href*='/wiki/']");
+  //
+  // For each link, get the profile ID and add it to the list of profile IDs
+  links.forEach((link) => {
+    const profileID = link.href.split("/").pop();
+    profileIDs.push(decodeURIComponent(profileID));
+  });
+  // Store them to localStorage with a timestamp
+  localStorage.setItem("pre1700", JSON.stringify({ profileIDs: profileIDs, timestamp: new Date().getTime }));
+
+  return profileIDs;
+}
+
+async function markNewestPre1700People() {
+  const newestPre1700s = await getNewestPre1700People();
+  const allLinks = document.querySelectorAll("a[href*='/wiki/']");
+  allLinks.forEach((link) => {
+    const profileID = link.href.split("/").pop();
+    if (newestPre1700s.includes(profileID)) {
+      $(link).addClass("newestPre1700s").attr("title", "One of the newest Pre-1700 badged people");
+    }
+  });
+}
+
+async function getBios() {
+  // Find all links in span.HISTORY-ITEM that include a year in the text content
+  const theLinks = $("span.HISTORY-ITEM a");
+  const bioLinks = [];
+
+  theLinks.each(function () {
+    if ($(this).text().match(/\d{4}/)) {
+      bioLinks.push(decodeURIComponent($(this).attr("href").split("/").pop()));
+    }
+  });
+
+  // Fetch the bios using the WikiTreeAPI
+  const bios = await WikiTreeAPI.getPeople(
+    "Rangers",
+    bioLinks,
+    ["Id", "Name", "Bio"], // Adjusted to match your data structure
+    { bioFormat: "text" }
+  );
+
+  // For each bio Name, find it in a link and add a button
+  theLinks.each(function () {
+    const profileID = decodeURIComponent($(this).attr("href").split("/").pop());
+
+    // Find the bio with the same Name as the profileID
+    const bio = Object.values(bios[2]).find((bio) => bio.Name === profileID);
+
+    if (bio) {
+      // Prepend the button to the parent element
+      $(this)
+        .parent()
+        .prepend(
+          `<button class="getBio" data-id="${String(bio.Id)}">
+            ${bio.Name}
+          </button>`
+        );
+    }
+  });
+
+  // Event handlers for hover effect
+  // Mouse enter
+  $(document).on("click", ".getBio", function () {
+    const bioId = String($(this).data("id")); // Ensure bioId is a string
+    console.log(bioId);
+    const bio = bios[2][bioId]; // Access the bio using the string key
+    console.log(bio);
+    if (bio && bio.bio) {
+      $("#content").prepend(
+        `<div class="bioPopup">
+          <x class="closeBioPopup">&times;</x>
+          ${bio.bio.replace(/\n/g, "<br>")}
+        </div>`
+      );
+    }
+  });
+
+  // Close button for the popup
+  $(document).on("click", ".closeBioPopup", function () {
+    $(this).parent().remove();
+  });
+
+  // Debugging output
+  console.log(bios);
+}
+
+if (window.location.href.includes("pre1700=1")) {
+  markNewestPre1700People();
+  const onlyNewestBadgesButton = $(
+    `<button id="onlyNewestBadges" title="Show only the newest Pre-1700 badged people" class="button small">Only edits by newly-badged people</button>`
+  );
+  $("#content p:first").append(onlyNewestBadgesButton);
+  $(document).on("click", "#onlyNewestBadges", function () {
+    // Find all span.HISTORY-ITEM rows not containing links with the class newestPre1700s and toggle them
+    const allItems = $("span.HISTORY-ITEM:not(.HISTORY-HIDDEN)");
+    allItems.each(function () {
+      if ($(this).find("a.newestPre1700s").length == 0) {
+        $(this).toggle();
+      }
+    });
+    $(this).toggleClass("active");
+  });
+  const getBiosButton = $(
+    "<button id='getBios' title='Get the bios of all these profiles' class='button small'>Get bios</button>"
+  );
+  $(document).on("click", "#getBios", function () {
+    getBios();
+  });
+  $("#content p:first").append(getBiosButton);
+}

@@ -26,3 +26,51 @@ body.page-Special_SearchPerson #onlyMembers.active {
 body.page-Special_SearchPerson #onlyMembers {
   cursor: pointer;
 }
+
+a.newestPre1700s {
+  background-color: lemonchiffon;
+  border: 1px solid forestgreen;
+  padding: 0.1em 0.3em;
+  border-radius: 5px;
+  font-size: 1em;
+  margin-left: 0.5em;
+}
+
+/* styles.css */
+
+/* Style for the bio popup */
+div.bioPopup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #fff;
+  padding: 1em;
+  border: 1px solid #000;
+  z-index: 1000;
+  max-width: 80%;
+  max-height: 80%;
+  overflow: auto;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* Close button for the bio popup */
+x.closeBioPopup {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 0.8em;
+  background: none;
+  border: none;
+  color: red;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* Style for the getBio buttons */
+.getBio {
+  font-size: 0.8em;
+  padding: 0.2em 0.5em;
+  margin-right: 0.5em;
+  cursor: pointer;
+}
