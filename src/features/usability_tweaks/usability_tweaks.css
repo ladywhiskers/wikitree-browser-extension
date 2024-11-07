@@ -51,7 +51,7 @@ div.bioPopup {
   max-width: 80%;
   max-height: 80%;
   overflow: auto;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 /* Close button for the bio popup */
@@ -59,7 +59,7 @@ x.closeBioPopup {
   position: absolute;
   top: 5px;
   right: 5px;
-  font-size: 1em;
+  font-size: 1.2em;
   background: none;
   border: none;
   color: red;
@@ -74,4 +74,53 @@ x.closeBioPopup {
   margin-right: 0.5em;
   cursor: pointer;
   float: right;
+}
+
+/* Highlighted <ref> tags */
+.bioPopup .reference,
+.bioPopup .source-line {
+  background-color: yellow;
+  font-weight: bold;
+}
+
+/* Highlighted headings */
+.bioPopup .h2 {
+  font-size: 1.5em;
+  color: blue;
+  font-weight: bold;
+}
+
+.bioPopup .h3 {
+  font-size: 1.3em;
+  color: darkgreen;
+  font-weight: bold;
+}
+
+.bioPopup .h4 {
+  font-size: 1.1em;
+  color: darkred;
+  font-weight: bold;
+}
+
+.bioPopup .h5 {
+  font-size: 1em;
+  color: purple;
+  font-weight: bold;
+}
+
+/* Highlighted ref tags */
+.bioPopup .ref-tag,
+.bioPopup .bullet {
+  background-color: orange;
+  color: black;
+  font-weight: bold;
+}
+.getBio.failedBioCheck {
+  background-color: #ffcccc !important;
+  border: 1px solid red !important;
+  padding: 0.1em 0.3em;
+  border-radius: 5px;
+  font-size: 1em;
+  margin-left: 0.5em;
+  color: black !important;
 }

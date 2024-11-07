@@ -22,6 +22,10 @@ import { getUserWtId, getUserNumId } from "../../core/common";
 import "../../core/common.css";
 import { getWikiTreePage } from "../../core/API/wwwWikiTree";
 import { WikiTreeAPI } from "../../core/API/WikiTreeAPI";
+import { theSourceRules } from "../bioCheck/SourceRules.js";
+import { BioCheckPerson } from "../bioCheck/BioCheckPerson.js";
+import { Biography } from "../bioCheck/Biography.js";
+import { initBioCheck } from "../bioCheck/bioCheck.js";
 
 function addSaveSearchFormDataButton() {
   const searchResultsP = $("span.large:contains('Search Results')").parent();
@@ -736,6 +740,7 @@ function acceptPMs() {
 setTimeout(acceptPMs, 1000);
 
 /* Rangering */
+/*
 async function getNewestPre1700People() {
   // Check if the list of pre-1700 profiles is already stored in localStorage
   const pre1700 = localStorage.getItem("pre1700");
@@ -788,10 +793,10 @@ async function getBios() {
   });
 
   // Fetch the bios using the WikiTreeAPI
-  const bios = await WikiTreeAPI.getPeople(
+  const people = await WikiTreeAPI.getPeople(
     "Rangers",
     bioLinks,
-    ["Id", "Name", "Bio"], // Adjusted to match your data structure
+    ["Id", "Name", "Bio", "BirthDate", "DeathDate", "Derived.ShortName"], // Adjusted to match your data structure
     { bioFormat: "text" }
   );
 
@@ -800,53 +805,152 @@ async function getBios() {
     const profileID = decodeURIComponent($(this).attr("href").split("/").pop());
 
     // Find the bio with the same Name as the profileID
-    const bio = Object.values(bios[2]).find((bio) => bio.Name === profileID);
+    const person = Object.values(people[2]).find((person) => person.Name === profileID);
 
-    if (bio) {
+    if (person) {
+      if ($("#mBirthDate").length == 0) {
+        // Create a hidden input to store the birthdate and store it.
+        $("body").append('<input type="hidden" id="mBirthDate" name="mBirthDate">');
+        // And another for the death date
+        $("body").append('<input type="hidden" id="mDeathDate" name="mDeathDate">');
+      }
+      $("#mBirthDate").val(person.BirthDate || "");
+      $("#mDeathDate").val(person.DeathDate || "");
+
+      const autoBioCheckResult = autoBioCheck(person.bio);
+
       // Prepend the button to the parent element
+      const failedBioCheckClass = autoBioCheckResult === false ? " failedBioCheck" : "";
+      const failedBioCheckTitle = autoBioCheckResult === false ? "failed Bio Check" : "";
       $(this)
         .parent()
         .append(
-          `<button class="getBio" data-id="${String(bio.Id)}">
-            ${bio.Name}
+          `<button class="getBio${failedBioCheckClass}" data-id="${String(person.Id)}" title="${failedBioCheckTitle}">
+            ${person.ShortName || person.Name}
           </button>`
         );
     }
   });
 
-  // Event handlers for hover effect
-  // Mouse enter
-  $(document).on("click", ".getBio", function () {
+  // Function to escape HTML special characters
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // Function to highlight WT markup elements
+  function highlightMarkup(text) {
+    // Escape HTML characters
+    let escapedText = escapeHtml(text);
+
+    // Highlight headings (== Heading == to ===== Heading =====)
+    escapedText = escapedText.replace(/(={2,5})([^=]+)\1/g, function (match, p1, p2) {
+      var level = p1.length; // Heading level based on number of '='
+      return '<span class="h' + level + '">' + match + "</span>";
+    });
+
+    // Highlight entire references and ref tags
+    escapedText = escapedText.replace(
+      /(&lt;ref\b[^&]*?&gt;)([\s\S]*?)(&lt;\/ref&gt;)|(&lt;ref\b[^&]*?\/&gt;)/gi,
+      function (match, p1, p2, p3, p4) {
+        if (p4) {
+          // Self-closing tag
+          return '<span class="reference"><span class="ref-tag">' + p4 + "</span></span>";
+        } else {
+          // Non-self-closing tag
+          return (
+            '<span class="reference"><span class="ref-tag">' +
+            p1 +
+            "</span>" +
+            p2 +
+            '<span class="ref-tag">' +
+            p3 +
+            "</span></span>"
+          );
+        }
+      }
+    );
+
+    // Highlight lines starting with '*' in the '== Sources ==' section, including the '*'
+    escapedText = escapedText.replace(
+      /(<span class="h[2-5]">== Sources ==<\/span>)([\s\S]*?)(?=(<span class="h[2-5]">|$))/i,
+      function (match, p1, p2) {
+        // p1: '== Sources ==' heading
+        // p2: Content after the heading up to the next heading or end of text
+        // Process p2 to highlight lines starting with '*'
+        let processedContent = p2.replace(/(^\*)(.*$)/gm, function (fullMatch, bullet, restOfLine) {
+          return '<span class="source-line"><span class="bullet">' + bullet + "</span>" + restOfLine + "</span>";
+        });
+        return p1 + processedContent;
+      }
+    );
+
+    // Return the processed text
+    return escapedText;
+  }
+
+  // Event handler for clicking on .getBio buttons
+  $(document).on("click", ".getBio", function (event) {
+    event.stopPropagation(); // Prevent the document click handler from firing
+
     const bioId = String($(this).data("id")); // Ensure bioId is a string
-    console.log(bioId);
-    const bio = bios[2][bioId]; // Access the bio using the string key
-    console.log(bio);
+    const thisPopup = $(`.bioPopup[data-id="${bioId}"]`);
+
+    // Hide all .bioPopup elements except the current one
+    $(".bioPopup").not(thisPopup).hide();
+
+    if (thisPopup.length) {
+      // Toggle visibility of the current popup
+      thisPopup.toggle();
+      return;
+    }
+
+    const bio = people[2][bioId]; // Access the bio using the string key
     if (bio && bio.bio) {
+      const highlightedBio = highlightMarkup(bio.bio).replace(/\n/g, "<br>");
       $("#content").prepend(
-        `<div class="bioPopup">
-          <x class="closeBioPopup">&times;</x>
-          ${bio.bio.replace(/\n/g, "<br>")}
-        </div>`
+        `<div class="bioPopup" data-id="${bioId}">
+        <x class="closeBioPopup">&times;</x>
+        ${highlightedBio}
+      </div>`
       );
     }
   });
 
-  // Close button for the popup
-  $(document).on("click", ".closeBioPopup", function () {
+  // Close button handler
+  $(document).on("click", ".closeBioPopup", function (event) {
+    event.stopPropagation(); // Prevent the document click handler from firing
     $(this).parent().remove();
   });
-  $(document).on("dblclick", ".bioPopup", function () {
-    $(this).remove();
+
+  // Prevent clicks inside the popup from closing it
+  $(document).on("click", ".bioPopup", function (event) {
+    event.stopPropagation();
+  });
+
+  // Hide popups when clicking outside
+  $(document).on("click", function () {
+    $(".bioPopup").hide();
+  });
+
+  $(document).on("keydown", function (event) {
+    if (event.key === "Escape") {
+      $(".bioPopup").hide();
+    }
   });
 
   // Debugging output
-  console.log(bios);
+  console.log(people);
 }
 
 if (window.location.href.includes("pre1700=1")) {
   markNewestPre1700People();
   const onlyNewestBadgesButton = $(
-    `<button id="onlyNewestBadges" title="Show only the newest Pre-1700 badged people" class="button small">Only edits by newly-badged people</button>`
+    `<button id="onlyNewestBadges" title="Show only the 200 newest Pre-1700 badged people" class="button small">Only edits by newly-badged people</button>`
   );
   $("#content p:first").append(onlyNewestBadgesButton);
   $(document).on("click", "#onlyNewestBadges", function () {
@@ -867,3 +971,357 @@ if (window.location.href.includes("pre1700=1")) {
   });
   $("#content p:first").append(getBiosButton);
 }
+
+function autoBioCheck(sourcesStr) {
+  let thePerson = new BioCheckPerson();
+  thePerson["#isApp"] = true;
+  thePerson.build();
+  let biography = new Biography(theSourceRules);
+  biography.parse(sourcesStr, thePerson, "");
+  biography.validate();
+  const hasSources = biography.hasSources();
+  return hasSources;
+}
+*/
+
+// Define the class RangeringTool
+class RangeringTool {
+  constructor() {
+    // Initialize variables
+    this.people = null;
+    this.bioCheckResults = {};
+    this.fetchedProfiles = {};
+    this.bioCheckResultsStorageKey = "bioCheckResults";
+    this.fetchedProfilesStorageKey = "fetchedProfiles";
+
+    this.init();
+  }
+
+  init() {
+    // Initialize event listeners
+    this.initializeEventListeners();
+
+    // Check if pre1700=1 is in the URL
+    if (window.location.href.includes("pre1700=1")) {
+      this.markNewestPre1700People();
+      this.addControlButtons();
+    }
+
+    // On page load, if we have people data in storage, display getBio buttons
+    const storedProfiles = sessionStorage.getItem(this.fetchedProfilesStorageKey);
+    if (storedProfiles) {
+      this.fetchedProfiles = JSON.parse(storedProfiles);
+      this.people = [null, null, this.fetchedProfiles];
+      this.displayBioButtons();
+    }
+  }
+
+  async getNewestPre1700People() {
+    // Check if the list of pre-1700 profiles is already stored in localStorage
+    const pre1700 = localStorage.getItem("pre1700");
+    if (pre1700) {
+      const pre1700Object = JSON.parse(pre1700);
+      // If the list is less than a day old, use it
+      if (new Date().getTime() - pre1700Object.timestamp < 86400000) {
+        return pre1700Object.profileIDs;
+      }
+    }
+    const profileIDs = [];
+    // Get the page with the list of pre-1700 profiles
+    const badgePage1 = await getWikiTreePage("Rangers", "index.php", "title=Special:Badges&b=pre_1700");
+    console.log(badgePage1);
+    // Make a DOM object of the page and find all the links like this: <span class="large"><a href="/wiki/Hill-64008" target="_blank">Sandy (Hill) McCartain</a></span>
+    const badgePage1DOM = new DOMParser().parseFromString(badgePage1, "text/html");
+    const links = badgePage1DOM.querySelectorAll("span.large a[href*='/wiki/']");
+    // For each link, get the profile ID and add it to the list of profile IDs
+    links.forEach((link) => {
+      const profileID = link.href.split("/").pop();
+      profileIDs.push(decodeURIComponent(profileID));
+    });
+    // Store them to localStorage with a timestamp
+    localStorage.setItem("pre1700", JSON.stringify({ profileIDs: profileIDs, timestamp: new Date().getTime() }));
+
+    return profileIDs;
+  }
+
+  async markNewestPre1700People() {
+    const newestPre1700s = await this.getNewestPre1700People();
+    const allLinks = document.querySelectorAll("a[href*='/wiki/']");
+    allLinks.forEach((link) => {
+      const profileID = link.href.split("/").pop();
+      if (newestPre1700s.includes(profileID)) {
+        $(link).addClass("newestPre1700s").attr("title", "One of the newest Pre-1700 badged people");
+      }
+    });
+  }
+
+  async getBios() {
+    // Retrieve stored profiles and bio check results
+    const storedProfiles = sessionStorage.getItem(this.fetchedProfilesStorageKey);
+    this.fetchedProfiles = storedProfiles ? JSON.parse(storedProfiles) : {};
+
+    const storedBioCheckResults = sessionStorage.getItem(this.bioCheckResultsStorageKey);
+    this.bioCheckResults = storedBioCheckResults ? JSON.parse(storedBioCheckResults) : {};
+
+    // Find all links in span.HISTORY-ITEM that include a year in the text content
+    const theLinks = $("span.HISTORY-ITEM a");
+    const bioLinks = [];
+
+    // Collect profile IDs to fetch
+    theLinks.each((index, element) => {
+      if ($(element).text().match(/\d{4}/)) {
+        const profileID = decodeURIComponent($(element).attr("href").split("/").pop());
+        // If the profile is not already stored, add to bioLinks to fetch
+        if (!this.fetchedProfiles[profileID]) {
+          bioLinks.push(profileID);
+        }
+      }
+    });
+
+    if (bioLinks.length > 0) {
+      // Fetch the bios using the WikiTreeAPI
+      const peopleResponse = await WikiTreeAPI.getPeople(
+        "Rangers",
+        bioLinks,
+        ["Id", "Name", "Bio", "BirthDate", "DeathDate", "Derived.ShortName"],
+        { bioFormat: "text" }
+      );
+
+      // Merge the newly fetched bios into fetchedProfiles
+      Object.assign(this.fetchedProfiles, peopleResponse[2]);
+
+      // Store the updated profiles in sessionStorage
+      sessionStorage.setItem(this.fetchedProfilesStorageKey, JSON.stringify(this.fetchedProfiles));
+
+      // Update the 'people' variable
+      this.people = [null, null, this.fetchedProfiles];
+
+      // Process new profiles and run autoBioCheck
+      Object.values(peopleResponse[2]).forEach((person) => {
+        if (person && person.bio) {
+          // Run autoBioCheck
+          const autoBioCheckResult = this.autoBioCheck(person.bio);
+          // Store the result
+          this.bioCheckResults[person.Id] = autoBioCheckResult;
+        }
+      });
+
+      // Update the bioCheckResults in sessionStorage
+      sessionStorage.setItem(this.bioCheckResultsStorageKey, JSON.stringify(this.bioCheckResults));
+    } else {
+      // No new profiles to fetch
+      if (!this.people) {
+        // Use stored profiles
+        this.people = [null, null, this.fetchedProfiles];
+      }
+    }
+
+    // Display getBio buttons for all profiles
+    this.displayBioButtons();
+  }
+
+  displayBioButtons() {
+    // Find all links in span.HISTORY-ITEM that include a year in the text content
+    const theLinks = $("span.HISTORY-ITEM a");
+
+    // For each bio Name, find it in a link and add a button
+    theLinks.each((index, element) => {
+      if ($(element).text().match(/\d{4}/)) {
+        const profileID = decodeURIComponent($(element).attr("href").split("/").pop());
+
+        // Find the bio with the same Name as the profileID
+        const person = Object.values(this.people[2]).find((person) => person.Name === profileID);
+
+        if (person) {
+          if ($("#mBirthDate").length == 0) {
+            // Create hidden inputs to store the birthdate and death date
+            $("body").append('<input type="hidden" id="mBirthDate" name="mBirthDate">');
+            $("body").append('<input type="hidden" id="mDeathDate" name="mDeathDate">');
+          }
+          $("#mBirthDate").val(person.BirthDate || "");
+          $("#mDeathDate").val(person.DeathDate || "");
+
+          let autoBioCheckResult;
+          if (this.bioCheckResults[person.Id] !== undefined) {
+            // Use stored result
+            autoBioCheckResult = this.bioCheckResults[person.Id];
+          } else {
+            // Run autoBioCheck
+            autoBioCheckResult = this.autoBioCheck(person.bio);
+            // Store the result
+            this.bioCheckResults[person.Id] = autoBioCheckResult;
+            // Update the bioCheckResults in sessionStorage
+            sessionStorage.setItem(this.bioCheckResultsStorageKey, JSON.stringify(this.bioCheckResults));
+          }
+
+          // Prepend the button to the parent element
+          const failedBioCheckClass = autoBioCheckResult === false ? " failedBioCheck" : "";
+          const failedBioCheckTitle = autoBioCheckResult === false ? "failed Bio Check" : "";
+          if ($(element).siblings(`button.getBio[data-id="${person.Id}"]`).length === 0) {
+            $(element)
+              .parent()
+              .append(
+                `<button class="getBio${failedBioCheckClass}" data-id="${String(
+                  person.Id
+                )}" title="${failedBioCheckTitle}">
+                  ${person.ShortName || person.Name}
+                </button>`
+              );
+          }
+        }
+      }
+    });
+  }
+
+  // Function to escape HTML special characters
+  escapeHtml(text) {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // Function to highlight WT markup elements
+  highlightMarkup(text) {
+    // Escape HTML characters
+    let escapedText = this.escapeHtml(text);
+
+    // Highlight headings (== Heading == to ===== Heading =====)
+    escapedText = escapedText.replace(/(={2,5})([^=]+)\1/g, function (match, p1, p2) {
+      var level = p1.length; // Heading level based on number of '='
+      return '<span class="h' + level + '">' + match + "</span>";
+    });
+
+    // Highlight entire references and ref tags
+    escapedText = escapedText.replace(
+      /(&lt;ref\b[^&]*?&gt;)([\s\S]*?)(&lt;\/ref&gt;)|(&lt;ref\b[^&]*?\/&gt;)/gi,
+      function (match, p1, p2, p3, p4) {
+        if (p4) {
+          // Self-closing tag
+          return '<span class="reference"><span class="ref-tag">' + p4 + "</span></span>";
+        } else {
+          // Non-self-closing tag
+          return (
+            '<span class="reference"><span class="ref-tag">' +
+            p1 +
+            "</span>" +
+            p2 +
+            '<span class="ref-tag">' +
+            p3 +
+            "</span></span>"
+          );
+        }
+      }
+    );
+
+    // Highlight lines starting with '*' in the '== Sources ==' section, including the '*'
+    escapedText = escapedText.replace(
+      /(<span class="h[2-5]">== Sources ==<\/span>)([\s\S]*?)(?=(<span class="h[2-5]">|$))/i,
+      function (match, p1, p2) {
+        // p1: '== Sources ==' heading
+        // p2: Content after the heading up to the next heading or end of text
+        // Process p2 to highlight lines starting with '*'
+        let processedContent = p2.replace(/(^\*)(.*$)/gm, function (fullMatch, bullet, restOfLine) {
+          return '<span class="source-line"><span class="bullet">' + bullet + "</span>" + restOfLine + "</span>";
+        });
+        return p1 + processedContent;
+      }
+    );
+
+    // Return the processed text
+    return escapedText;
+  }
+
+  // Event handler initialization
+  initializeEventListeners() {
+    // Event handler for clicking on .getBio buttons
+    $(document).on("click", ".getBio", (event) => {
+      event.stopPropagation(); // Prevent the document click handler from firing
+
+      const bioId = String($(event.currentTarget).data("id")); // Ensure bioId is a string
+      const thisPopup = $(`.bioPopup[data-id="${bioId}"]`);
+
+      // Hide all .bioPopup elements except the current one
+      $(".bioPopup").not(thisPopup).hide();
+
+      if (thisPopup.length) {
+        // Toggle visibility of the current popup
+        thisPopup.toggle();
+        return;
+      }
+
+      const bio = this.people[2][bioId]; // Access the bio using the string key
+      if (bio && bio.bio) {
+        const highlightedBio = this.highlightMarkup(bio.bio).replace(/\n/g, "<br>");
+        $("#content").prepend(
+          `<div class="bioPopup" data-id="${bioId}">
+            <x class="closeBioPopup">&times;</x>
+            ${highlightedBio}
+          </div>`
+        );
+      }
+    });
+
+    // Close button handler
+    $(document).on("click", ".closeBioPopup", function (event) {
+      event.stopPropagation(); // Prevent the document click handler from firing
+      $(this).parent().remove();
+    });
+
+    // Prevent clicks inside the popup from closing it
+    $(document).on("click", ".bioPopup", function (event) {
+      event.stopPropagation();
+    });
+
+    // Hide popups when clicking outside
+    $(document).on("click", function () {
+      $(".bioPopup").hide();
+    });
+
+    $(document).on("keydown", function (event) {
+      if (event.key === "Escape") {
+        $(".bioPopup").hide();
+      }
+    });
+  }
+
+  addControlButtons() {
+    const onlyNewestBadgesButton = $(
+      `<button id="onlyNewestBadges" title="Show only the 200 newest Pre-1700 badged people" class="button small">Only edits by newly-badged people</button>`
+    );
+    $("#content p:first").append(onlyNewestBadgesButton);
+    $(document).on("click", "#onlyNewestBadges", function () {
+      // Find all span.HISTORY-ITEM rows not containing links with the class newestPre1700s and toggle them
+      const allItems = $("span.HISTORY-ITEM:not(.HISTORY-HIDDEN)");
+      allItems.each(function () {
+        if ($(this).find("a.newestPre1700s").length == 0) {
+          $(this).toggle();
+        }
+      });
+      $(this).toggleClass("active");
+    });
+    const getBiosButton = $(
+      "<button id='getBios' title='Get the bios of all these profiles' class='button small'>Get bios</button>"
+    );
+    $(document).on("click", "#getBios", () => {
+      this.getBios();
+    });
+    $("#content p:first").append(getBiosButton);
+  }
+
+  autoBioCheck(sourcesStr) {
+    // This function remains exactly as you have it
+    let thePerson = new BioCheckPerson();
+    thePerson["#isApp"] = true;
+    thePerson.build();
+    let biography = new Biography(theSourceRules);
+    biography.parse(sourcesStr, thePerson, "");
+    biography.validate();
+    const hasSources = biography.hasSources();
+    return hasSources;
+  }
+}
+
+const rangeringTool = new RangeringTool();
