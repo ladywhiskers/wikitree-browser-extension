@@ -908,7 +908,7 @@ class RangeringTool {
 
           // Prepend the button to the parent element
           const failedBioCheckClass = autoBioCheckResult === false ? " failedBioCheck" : "";
-          const failedBioCheckTitle = autoBioCheckResult === false ? "failed Bio Check" : "";
+          const failedBioCheckTitle = autoBioCheckResult === false ? " Bio Check issues" : "";
           if ($(element).siblings(`button.getBio[data-id="${person.Id}"]`).length === 0) {
             $(element)
               .parent()
