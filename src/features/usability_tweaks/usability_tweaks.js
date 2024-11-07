@@ -890,11 +890,6 @@ class RangeringTool {
         const person = Object.values(this.people[2]).find((person) => person.Name === profileID);
 
         if (person) {
-          if ($("#mBirthDate").length == 0) {
-            // Create hidden inputs to store the birthdate and death date
-            $("body").append('<input type="hidden" id="mBirthDate" name="mBirthDate">');
-            $("body").append('<input type="hidden" id="mDeathDate" name="mDeathDate">');
-          }
           $("#mBirthDate").val(person.BirthDate || "0000-00-00");
           $("#mDeathDate").val(person.DeathDate || "0000-00-00");
 
@@ -1069,7 +1064,11 @@ class RangeringTool {
   }
 
   autoBioCheck(sourcesStr) {
-    // This function remains exactly as you have it
+    if ($("#mBirthDate").length == 0) {
+      // Create hidden inputs to store the birthdate and death date
+      $("body").append('<input type="hidden" id="mBirthDate" name="mBirthDate">');
+      $("body").append('<input type="hidden" id="mDeathDate" name="mDeathDate">');
+    }
     let thePerson = new BioCheckPerson();
     thePerson["#isApp"] = true;
     thePerson.build();
