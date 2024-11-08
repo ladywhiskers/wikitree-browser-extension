@@ -759,14 +759,16 @@ class RangeringTool {
       merges: {
         name: "Merges",
         inURL: "merge=1",
-        actions: [() => this.addMergesButtons()],
+        actions: [() => this.addMergesButtons(), () => this.addControlButtons()],
       },
     };
     this.people = null;
     this.bioCheckResults = {};
     this.fetchedProfiles = {};
+    this.memberData = {};
     this.bioCheckResultsStorageKey = "bioCheckResults";
     this.fetchedProfilesStorageKey = "fetchedProfiles";
+    this.memberDataStorageKey = "memberData";
     this.currentConfig = this.getCurrentConfig();
     this.rangersButtons = $("<div id='rangersButtons'></div>").appendTo($("#content p:first"));
     this.init();
@@ -779,10 +781,23 @@ class RangeringTool {
 
     // On page load, if we have people data in storage, display getBio buttons
     const storedProfiles = sessionStorage.getItem(this.fetchedProfilesStorageKey);
-    if (storedProfiles) {
+    if (storedProfiles && this.currentConfig.name === "Pre-1700") {
       this.fetchedProfiles = JSON.parse(storedProfiles);
       this.people = [null, null, this.fetchedProfiles];
       this.displayBioButtons();
+    }
+
+    // Load existing merge data from sessionStorage
+    const storedMerges = sessionStorage.getItem(this.mergesStorageKey);
+    const storedMemberData = sessionStorage.getItem(this.memberDataStorageKey);
+
+    if (storedMerges && this.currentConfig.name === "Merges") {
+      this.mergesData = JSON.parse(storedMerges);
+      this.checkForAnomalies();
+      if (storedMemberData) {
+        this.memberData = JSON.parse(storedMemberData);
+        this.getMemberCreatedDates();
+      }
     }
   }
 
@@ -793,23 +808,97 @@ class RangeringTool {
     }
   }
 
-  async getThePeople(WTIDs) {
-    // Use getPeople from the WikiTreeAPI to get the people's data
-    const people = await WikiTreeAPI.getPeople(
-      "Rangers",
-      WTIDs.flat(),
-      ["Id", "Name", "BirthDate", "DeathDate", "Derived.ShortName", "Gender"],
-      { resolveRedirect: 0 }
-    );
-    this.people = people[2];
-    console.log(this.people);
+  async getMemberCreatedDates() {
+    const memberCreatedDates = {};
+    const historyItems = $("span.HISTORY-ITEM");
+    const memberProfileIDs = [];
+    const self = this;
+    // Get ID from first /wiki/ link in each HISTORY-ITEM span
+    historyItems.each(function () {
+      const link = $(this).find("a[href*='/wiki/']").first();
+      const profileID = link.attr("href").split("/").pop();
+
+      memberProfileIDs.push(profileID);
+    });
+
+    const fields = ["Id", "Name", "Created"];
+    if (Object.keys(self.memberData).length) {
+      // Find which profiles are already in memberData
+      const existingProfiles = Object.keys(self.memberData);
+      const newProfiles = memberProfileIDs.filter((id) => !existingProfiles.includes(id));
+      if (newProfiles.length) {
+        // Fetch new data only for IDs not in sessionStorage
+        const people = await WikiTreeAPI.getPeople("Rangers", newProfiles, fields, { resolveRedirect: 0 });
+        // Merge new data with existing profiles
+        self.memberData = { ...self.memberData, ...people[2] };
+        // Store updated data in sessionStorage
+        sessionStorage.setItem(self.memberDataStorageKey, JSON.stringify(self.memberData));
+      }
+    } else {
+      self.memberData = await this.getThePeople(memberProfileIDs, fields);
+    }
+    // store the memberData in sessionStorage
+    sessionStorage.setItem(this.memberDataStorageKey, JSON.stringify(self.memberData));
+
+    // Find the memberProfileIDs in the memberData and extract the Created date
+    for (const profileID of memberProfileIDs) {
+      const member = Object.values(self.memberData).find((person) => person.Name === profileID);
+      if (member) {
+        memberCreatedDates[profileID] = member.Created;
+        const createdDate = new Date(
+          member.Created.slice(0, 4) + "-" + member.Created.slice(4, 6) + "-" + member.Created.slice(6, 8)
+        );
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        if (createdDate > sixMonthsAgo) {
+          // Add the "newt" class to the HISTORY-ITEM span
+          $("a[href*='/wiki/" + profileID + "']")
+            .closest("span.HISTORY-ITEM")
+            .addClass("newt");
+          // Add the "newt" class to the first /wiki/ link in the HISTORY-ITEM span
+          $("a[href*='/wiki/" + profileID + "']").addClass("newt");
+        }
+      }
+    }
+  }
+
+  async getThePeople(WTIDs, fields = []) {
+    // Check for already stored profiles
+    const storedProfiles = sessionStorage.getItem(this.fetchedProfilesStorageKey);
+    let existingProfiles = storedProfiles ? JSON.parse(storedProfiles) : {};
+
+    // Filter out already stored IDs
+    const newWTIDs = WTIDs.filter((id) => !existingProfiles[id]);
+
+    if (fields.length === 0) {
+      fields = ["Id", "Name", "BirthDate", "DeathDate", "Derived.ShortName", "Gender"];
+    }
+
+    if (newWTIDs.length > 0) {
+      // Fetch new data only for IDs not in sessionStorage
+      const people = await WikiTreeAPI.getPeople("Rangers", newWTIDs, fields, { resolveRedirect: 0 });
+
+      // Merge new data with existing profiles
+      existingProfiles = { ...existingProfiles, ...people[2] };
+
+      // Store updated data in sessionStorage
+      sessionStorage.setItem(this.fetchedProfilesStorageKey, JSON.stringify(existingProfiles));
+    }
+
+    this.people = existingProfiles;
     return this.people;
+  }
+
+  okDate(date) {
+    return date && date != "0000-00-00" && date != "null";
   }
 
   async checkForAnomalies() {
     const WTIDs = [];
     const historyItems = $("span.HISTORY-ITEM");
+    const mergeData = [];
     const processedPairs = new Set(); // To track unique ID pairs processed
+    const self = this;
 
     // First pass: Extract all WikiTree IDs (Names) from the HISTORY-ITEM spans
     historyItems.each(function () {
@@ -822,14 +911,20 @@ class RangeringTool {
           WTIDs.push(match[1]);
         }
       });
+      if (WTIDs.length >= 2) {
+        mergeData.push({ mergeID1: WTIDs[0], mergeID2: WTIDs[1] });
+      }
     });
 
     // Remove duplicates from WTIDs for efficient lookup
     const uniqueWTIDs = [...new Set(WTIDs)];
 
+    // Store the merge data in sessionStorage
+    sessionStorage.setItem(this.mergesStorageKey, JSON.stringify(mergeData));
+    this.mergesData = mergeData;
+
     // Fetch people data
     const people = await this.getThePeople(uniqueWTIDs);
-    console.log("People data:", people);
 
     // Second pass: Compare data for anomalies and highlight items
     let anomalyCount = 0;
@@ -865,35 +960,34 @@ class RangeringTool {
 
             const differentGender = person1.Gender && person2.Gender && person1.Gender !== person2.Gender;
             const birthDifferenceOver10Years =
-              person1.BirthDate &&
-              person1.BirthDate != "0000-00-00" &&
-              person2.BirthDate &&
+              self.okDate(person1.BirthDate) &&
+              self.okDate(person2.BirthDate) &&
               person2.BirthDate != "0000-00-00" &&
               Math.abs(new Date(person1.BirthDate) - new Date(person2.BirthDate)) > 315569520000;
             const deathDifferenceOver10Years =
-              person1.DeathDate &&
-              person1.DeathDate != "0000-00-00" &&
-              person2.DeathDate &&
+              self.okDate(person1.DeathDate) &&
+              self.okDate(person2.DeathDate) &&
               person2.DeathDate != "0000-00-00" &&
               Math.abs(new Date(person1.DeathDate) - new Date(person2.DeathDate)) > 315569520000;
 
             if (differentGender || birthDifferenceOver10Years || deathDifferenceOver10Years) {
-              console.log(`Anomaly found between ${person1.Name} and ${person2.Name}`);
-              console.log("Different genders:", differentGender);
-              console.log("Birth difference over 10 years:", birthDifferenceOver10Years);
-              console.log("Death difference over 10 years:", deathDifferenceOver10Years);
               $(this).addClass("anomaly");
               let titleText = "";
               if (differentGender) {
-                titleText += "Different genders\n";
+                titleText += `Different genders: ${person1.Gender} vs. ${person2.Gender} \n`;
               }
               if (birthDifferenceOver10Years) {
-                titleText += "A 10-year difference in birth dates\n";
+                titleText += `A 10-year(+) difference in birth dates: ${person1.BirthDate} vs. ${person2.BirthDate}\n`;
               }
               if (deathDifferenceOver10Years) {
-                titleText += "A 10-year difference in death dates\n";
+                titleText += `A 10-year(+) difference in death dates: ${person1.DeathDate} vs. ${person2.DeathDate}\n`;
               }
               $(this).attr("title", titleText);
+              const anomalyDiv = $(`<div class='anomalyDiv'>${titleText.replace(/\n/g, "<br>")}</div>`);
+              if ($(this).find(".anomalyDiv").length === 0) {
+                $(this).append(anomalyDiv);
+              }
+
               anomalyCount++;
             }
           }
@@ -932,8 +1026,9 @@ class RangeringTool {
   addMergesButtons() {
     const anomaliesButton = $(
       `<button id='anomaliesButton' class='button small' 
-      title='Check for 1) Different genders 2) A 10-year difference in birth dates 
-      3) A 10-year difference in death dates'>Check for Anomalies</button>`
+      title='Check for \n1) Different genders \n2) A 10-year difference in birth dates \n3) A 10-year difference in death dates'>
+      Check for Anomalies
+      </button>`
     ).appendTo(this.rangersButtons);
     anomaliesButton.on("click", () => this.checkForAnomalies());
   }
@@ -945,7 +1040,6 @@ class RangeringTool {
       const configItem = this.config[key];
       if (window.location.href.includes(configItem.inURL)) {
         currentConfig = this.config[key];
-        console.log(currentConfig);
         return configItem; // Return the first match found
       }
     }
@@ -965,7 +1059,6 @@ class RangeringTool {
     const profileIDs = [];
     // Get the page with the list of pre-1700 profiles
     const badgePage1 = await getWikiTreePage("Rangers", "index.php", "title=Special:Badges&b=pre_1700");
-    console.log(badgePage1);
     // Make a DOM object of the page and find all the links like this: <span class="large"><a href="/wiki/Hill-64008" target="_blank">Sandy (Hill) McCartain</a></span>
     const badgePage1DOM = new DOMParser().parseFromString(badgePage1, "text/html");
     const links = badgePage1DOM.querySelectorAll("span.large a[href*='/wiki/']");
@@ -1167,6 +1260,7 @@ class RangeringTool {
 
   // Event handler initialization
   initializeEventListeners() {
+    const self = this;
     // Event handler for clicking on .getBio buttons
     $(document).on("click", ".getBio", (event) => {
       event.stopPropagation(); // Prevent the document click handler from firing
@@ -1216,34 +1310,51 @@ class RangeringTool {
         $(".bioPopup").hide();
       }
     });
-  }
 
-  addControlButtons() {
-    const onlyNewestBadgesButton = $(
-      `<button id="onlyNewestBadges" title="Show only edits by the 200 newest Pre-1700 badged people" class="button small">Only edits by newly-badged people</button>`
-    );
-    this.rangersButtons.append(onlyNewestBadgesButton);
-    $(document).on("click", "#onlyNewestBadges", function () {
+    $(document).on("click", "#onlyNewestBadges,#onlyNewts", async function () {
       // Find all span.HISTORY-ITEM rows not containing links with the class newestPre1700s and toggle them
       const allItems = $("span.HISTORY-ITEM:not(.HISTORY-HIDDEN)");
+      if (self.currentConfig.name === "Merges" && Object.keys(self.memberData).length == 0) {
+        await self.getMemberCreatedDates();
+      }
+      //
       allItems.each(function () {
-        if ($(this).find("a.newestPre1700s").length == 0) {
+        if ($(this).find("a.newestPre1700s,a.newt").length == 0) {
           $(this).toggle();
         }
       });
       $(this).toggleClass("active");
       // toggle the button text
     });
-    const getBiosButton = $(
-      "<button id='getBios' title='Get the bios of all these profiles' class='button small'>Get bios</button>"
-    );
-    $(document).on("click", "#getBios", () => {
-      this.getBios();
-    });
-    this.rangersButtons.append(getBiosButton);
+  }
+
+  addControlButtons() {
+    if (this.currentConfig.name === "Pre-1700") {
+      const onlyNewestBadgesButton = $(
+        `<button id="onlyNewestBadges" title="Show only edits by the 200 newest Pre-1700 badged people" class="button small">Only edits by newly-badged people</button>`
+      );
+      this.rangersButtons.append(onlyNewestBadgesButton);
+
+      const getBiosButton = $(
+        "<button id='getBios' title='Get the bios of all these profiles' class='button small'>Get bios</button>"
+      );
+      $(document).on("click", "#getBios", () => {
+        this.getBios();
+      });
+      this.rangersButtons.append(getBiosButton);
+    }
+    if (this.currentConfig.name === "Merges") {
+      const onlyNewtsButton = $(
+        `<button id="onlyNewts" title="Show only edits by people who joined less than 6 months ago" class="button small">Only edits by new members</button>`
+      );
+      this.rangersButtons.append(onlyNewtsButton);
+    }
   }
 
   autoBioCheck(sourcesStr) {
+    if (!sourcesStr) {
+      return false;
+    }
     if ($("#mBirthDate").length == 0) {
       // Create hidden inputs to store the birthdate and death date
       $("body").append('<input type="hidden" id="mBirthDate" name="mBirthDate">');

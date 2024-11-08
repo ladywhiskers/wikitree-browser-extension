@@ -27,7 +27,8 @@ body.page-Special_SearchPerson #onlyMembers {
   cursor: pointer;
 }
 
-a.newestPre1700s {
+a.newestPre1700s,
+a.newt {
   background-color: lemonchiffon;
   border: 1px solid forestgreen;
   padding: 0.1em 0.3em;
@@ -134,10 +135,16 @@ x.closeBioPopup {
 }
 
 .HISTORY-ITEM.anomaly {
-  background-color: #ffcccc;
-  border: 1px solid red;
+  background-color: #fff2e6;
+  border: 1px solid #ff6600;
   padding: 0.1em 0.3em;
   border-radius: 5px;
   font-size: 1em;
-  margin-left: 0.5em;
+}
+
+.anomalyDiv {
+  padding: 0.5em;
+  border: 1px solid forestgreen;
+  border-radius: 5px;
+  margin: 0.2em;
 }
