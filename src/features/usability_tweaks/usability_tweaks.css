@@ -124,3 +124,20 @@ x.closeBioPopup {
   margin-left: 0.5em;
   color: black !important;
 }
+
+#rangersButtons {
+  text-align: center;
+}
+#rangersButtons button.active {
+  background-color: forestgreen;
+  border: 1px solid black;
+}
+
+.HISTORY-ITEM.anomaly {
+  background-color: #ffcccc;
+  border: 1px solid red;
+  padding: 0.1em 0.3em;
+  border-radius: 5px;
+  font-size: 1em;
+  margin-left: 0.5em;
+}
