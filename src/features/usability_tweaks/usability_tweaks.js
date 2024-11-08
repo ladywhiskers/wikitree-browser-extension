@@ -809,6 +809,7 @@ class RangeringTool {
   async checkForAnomalies() {
     const WTIDs = [];
     const historyItems = $("span.HISTORY-ITEM");
+    const processedPairs = new Set(); // To track unique ID pairs processed
 
     // First pass: Extract all WikiTree IDs (Names) from the HISTORY-ITEM spans
     historyItems.each(function () {
@@ -851,57 +852,61 @@ class RangeringTool {
       });
 
       if (ids.length >= 2) {
-        // Find people by matching the Name property
         const person1 = Object.values(people).find((person) => person.Name === ids[0]);
         const person2 = Object.values(people).find((person) => person.Name === ids[1]);
 
         if (person1 && person2) {
-          const differentGender = person1.Gender && person2.Gender && person1.Gender !== person2.Gender;
-          const birthDifferenceOver10Years =
-            person1.BirthDate &&
-            person1.BirthDate != "0000-00-00" &&
-            person2.BirthDate &&
-            person2.BirthDate != "0000-00-00" &&
-            Math.abs(new Date(person1.BirthDate) - new Date(person2.BirthDate)) > 315569520000;
-          const deathDifferenceOver10Years =
-            person1.DeathDate &&
-            person1.DeathDate != "0000-00-00" &&
-            person2.DeathDate &&
-            person2.DeathDate != "0000-00-00" &&
-            Math.abs(new Date(person1.DeathDate) - new Date(person2.DeathDate)) > 315569520000;
-          if (differentGender || birthDifferenceOver10Years || deathDifferenceOver10Years) {
-            console.log(`Anomaly found between ${person1.Name} and ${person2.Name}`);
-            console.log("Different genders:", differentGender);
-            console.log("Birth difference over 10 years:", birthDifferenceOver10Years);
-            console.log("Death difference over 10 years:", deathDifferenceOver10Years);
-            $(this).addClass("anomaly");
-            let titleText = "";
-            if (differentGender) {
-              titleText += "Different genders\n";
+          // Create a unique identifier for the ID pair
+          const pairKey = [ids[0], ids[1]].sort().join("_");
+
+          // Check if this pair has already been processed
+          if (!processedPairs.has(pairKey)) {
+            processedPairs.add(pairKey); // Mark this pair as processed
+
+            const differentGender = person1.Gender && person2.Gender && person1.Gender !== person2.Gender;
+            const birthDifferenceOver10Years =
+              person1.BirthDate &&
+              person1.BirthDate != "0000-00-00" &&
+              person2.BirthDate &&
+              person2.BirthDate != "0000-00-00" &&
+              Math.abs(new Date(person1.BirthDate) - new Date(person2.BirthDate)) > 315569520000;
+            const deathDifferenceOver10Years =
+              person1.DeathDate &&
+              person1.DeathDate != "0000-00-00" &&
+              person2.DeathDate &&
+              person2.DeathDate != "0000-00-00" &&
+              Math.abs(new Date(person1.DeathDate) - new Date(person2.DeathDate)) > 315569520000;
+
+            if (differentGender || birthDifferenceOver10Years || deathDifferenceOver10Years) {
+              console.log(`Anomaly found between ${person1.Name} and ${person2.Name}`);
+              console.log("Different genders:", differentGender);
+              console.log("Birth difference over 10 years:", birthDifferenceOver10Years);
+              console.log("Death difference over 10 years:", deathDifferenceOver10Years);
+              $(this).addClass("anomaly");
+              let titleText = "";
+              if (differentGender) {
+                titleText += "Different genders\n";
+              }
+              if (birthDifferenceOver10Years) {
+                titleText += "A 10-year difference in birth dates\n";
+              }
+              if (deathDifferenceOver10Years) {
+                titleText += "A 10-year difference in death dates\n";
+              }
+              $(this).attr("title", titleText);
+              anomalyCount++;
             }
-            if (birthDifferenceOver10Years) {
-              titleText += "A 10-year difference in birth dates\n";
-            }
-            if (deathDifferenceOver10Years) {
-              titleText += "A 10-year difference in death dates\n";
-            }
-            $(this).attr("title", titleText);
-            anomalyCount++;
           }
         }
       }
     });
-    // Flash up a message with the number of anomalies found.  Not an alert, as that would be too intrusive.
 
-    if (anomalyCount > 0) {
-      const message = $(`<div id='anomalyMessage' class='flashMessage'>${anomalyCount} anomalies found</div>`);
-      message.appendTo("body");
-      setTimeout(() => message.remove(), 3000);
-    } else {
-      const message = $(`<div id='anomalyMessage' class='flashMessage'>No anomalies found</div>`);
-      message.appendTo("body");
-      setTimeout(() => message.remove(), 3000);
-    }
+    // Flash up a message with the number of anomalies found
+    const anomalyWord = anomalyCount === 1 ? "anomaly" : "anomalies";
+    const messageText = anomalyCount > 0 ? `${anomalyCount} ${anomalyWord} found` : `No anomalies found`;
+    const message = $(`<div id='anomalyMessage' class='flashMessage'>${messageText}</div>`);
+    message.appendTo("body");
+    setTimeout(() => message.remove(), 3000);
 
     // Add some CSS for the flash message
     const style = `
