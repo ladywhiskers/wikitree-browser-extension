@@ -701,7 +701,7 @@ function acceptPMs() {
     const pmButton = pmButtons.eq(0);
     const params = new URLSearchParams(window.location.search);
     const PMsubject = params.get("PMsubject");
-    const PMbody = params.get("PMbody");
+    let PMbody = params.get("PMbody");
     const PManswer = "ten";
     if (PMbody) {
       let targetNode = document.body; // Replace with a closer parent if possible
@@ -719,6 +719,8 @@ function acceptPMs() {
               // Check if our target element exists within this node
               let targetElement = node.querySelector("#privateMessage-comments");
               if (targetElement) {
+                const senderName = $("#privateMessage-sender_name").val();
+                PMbody = PMbody.replace(/{SenderName}/g, senderName);
                 $("#privateMessage-comments").val(PMbody);
                 $("#privateMessage-subject").val(PMsubject);
                 $("#privateMessage-answer").val(PManswer);
