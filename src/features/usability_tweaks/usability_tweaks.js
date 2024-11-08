@@ -831,6 +831,7 @@ class RangeringTool {
     console.log("People data:", people);
 
     // Second pass: Compare data for anomalies and highlight items
+    let anomalyCount = 0;
     historyItems.each(function () {
       const links = $(this).find("a[href*='/wiki/']").slice(1);
       const ids = [];
@@ -874,10 +875,53 @@ class RangeringTool {
             console.log("Birth difference over 10 years:", birthDifferenceOver10Years);
             console.log("Death difference over 10 years:", deathDifferenceOver10Years);
             $(this).addClass("anomaly");
+            let titleText = "";
+            if (differentGender) {
+              titleText += "Different genders\n";
+            }
+            if (birthDifferenceOver10Years) {
+              titleText += "A 10-year difference in birth dates\n";
+            }
+            if (deathDifferenceOver10Years) {
+              titleText += "A 10-year difference in death dates\n";
+            }
+            $(this).attr("title", titleText);
+            anomalyCount++;
           }
         }
       }
     });
+    // Flash up a message with the number of anomalies found.  Not an alert, as that would be too intrusive.
+
+    if (anomalyCount > 0) {
+      const message = $(`<div id='anomalyMessage' class='flashMessage'>${anomalyCount} anomalies found</div>`);
+      message.appendTo("body");
+      setTimeout(() => message.remove(), 3000);
+    } else {
+      const message = $(`<div id='anomalyMessage' class='flashMessage'>No anomalies found</div>`);
+      message.appendTo("body");
+      setTimeout(() => message.remove(), 3000);
+    }
+
+    // Add some CSS for the flash message
+    const style = `
+      <style>
+      .flashMessage {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        z-index: 1000;
+        text-align: center;
+        font-size: 1.2em;
+      }
+      </style>
+    `;
+    $("head").append(style);
   }
 
   addMergesButtons() {
