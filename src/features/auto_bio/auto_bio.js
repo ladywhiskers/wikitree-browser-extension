@@ -9,7 +9,7 @@ import { occupationList } from "./occupation_list";
 import { occupationList2 } from "./occupation_list_2";
 import { unsourcedCategories } from "./unsourced_categories.js";
 import { firstNameVariants } from "./first_name_variants.js";
-import { isOK, familyArray, treeImageURL, getUserNumId } from "../../core/common";
+import { ageAtDeath, familyArray, getUserNumId, isOK, treeImageURL } from "../../core/common";
 import { getAge } from "../change_family_lists/change_family_lists";
 import { titleCase } from "../familyTimeline/familyTimeline";
 import { wtAPICatCIBSearch } from "../../core/API/wtPlusAPI";
@@ -18,7 +18,6 @@ import { theSourceRules } from "../bioCheck/SourceRules.js";
 import { BioCheckPerson } from "../bioCheck/BioCheckPerson.js";
 import { Biography } from "../bioCheck/Biography.js";
 import { initBioCheck } from "../bioCheck/bioCheck.js";
-import { ageAtDeath } from "../my_connections/my_connections";
 import { bioTimelineFacts, buildTimelineTable, buildTimelineSA } from "./timeline";
 import { mainDomain, isIansProfile } from "../../core/pageType";
 import ONSjson from "./ONS.json";
@@ -6187,11 +6186,11 @@ export async function afterBioHeadingTextAndObjects(thingsToAddAfterBioHeading =
 
   if (window.autoBioOptions?.diedYoung) {
     try {
-      const deathAge = ageAtDeath(window.profilePerson, false);
-      if (typeof deathAge[0] !== "undefined") {
+      const deathAge = ageAtDeath(window.profilePerson);
+      if (typeof deathAge.age !== "") {
         const alreadyHasDiedYoungTemplate = thingsToAddAfterBioHeading.some((item) => item.startsWith("{{Died Young"));
 
-        if (deathAge[0] < 17 && !alreadyHasDiedYoungTemplate) {
+        if (deathAge.age < 17 && !alreadyHasDiedYoungTemplate) {
           if (window.autoBioOptions?.diedYoungImage != "Default") {
             thingsToAddAfterBioHeading.push("{{Died Young|" + window.autoBioOptions?.diedYoungImage + "}}");
           } else {

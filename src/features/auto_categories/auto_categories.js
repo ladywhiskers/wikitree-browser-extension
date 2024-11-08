@@ -1,7 +1,7 @@
 import $ from "jquery";
 import { getProfile } from "../distanceAndRelationship/distanceAndRelationship";
 import { getFeatureOptions } from "../../core/options/options_storage";
-import { ageAtDeath } from "../my_connections/my_connections";
+import { ageAtDeath } from "../../core/common";
 import {
   getLocationCategory,
   getLocationCategoriesForSourcePlaces,
@@ -26,9 +26,9 @@ import {
 function addDiedYoung() {
   let currentBio = $("#wpTextbox1").val();
   if (window.autoCategoriesOptions.diedYoung) {
-    const deathAge = ageAtDeath(window.profilePerson, false);
-    if (typeof deathAge[0] !== "undefined") {
-      if (deathAge[0] < 17 && currentBio.match("{{Died Young}}") == null) {
+    const deathAge = ageAtDeath(window.profilePerson);
+    if (typeof deathAge.age !== "") {
+      if (deathAge.age < 17 && currentBio.match("{{Died Young}}") == null) {
         currentBio = currentBio.replace(/==\s?Biography\s?==/i, "== Biography ==\n{{Died Young}}");
       }
     }

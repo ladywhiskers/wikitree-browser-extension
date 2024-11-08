@@ -450,63 +450,15 @@ export function timeline(id = false) {
         const tlpAgeAtEvent = ageAtEvent(tlPersonBirth, eventDate);
         let renderedAgeAtEvent = "";
 
-        // let aboutAge = "";
-        // let bpBdate = person.BirthDate;
-        // if (!person.BirthDate) {
-        //   bpBdate = person.BirthDateDecade.replace(/0s/, "5");
-        // }
-        // let hasBdate = true;
-        // if (bpBdate == "0000-00-00") {
-        //   hasBdate = false;
-        // }
-        // const bpBD = getApproxDate(bpBdate);
-        // const evDate = getApproxDate(aFact.eventDate);
-        // const aPersonBD = getApproxDate(aFact.birthDate);
-        // if (bpBD.Approx == true) {
-        //   aboutAge = "~";
-        // }
-        // if (evDate.Approx == true) {
-        //   aboutAge = "~";
-        // }
-        // const bpAgeAtEvent = getAge(new Date(bpBD.Date), new Date(evDate.Date));
-        // let bpAge;
-        // if (bpAgeAtEvent == 0) {
-        //   bpAge = "";
-        // } else if (bpAgeAtEvent < 0) {
-        //   bpAge = `–${-bpAgeAtEvent}`;
-        // } else {
-        //   bpAge = `${bpAgeAtEvent}`;
-        // }
         if (tlpDead == true) {
-          const theDiff = parseInt(tlpAgeAtEvent.age - tlpDeadAge.age);
+          const theDiff = tlpAgeAtEvent.age - tlpDeadAge.age;
           const diffAnnotation = statusOfDiff(tlpDeadAge.annotation, tlpAgeAtEvent.annotation);
-          renderedAgeAtEvent = `${RIBBON}+ ${diffAnnotation}${theDiff}`;
+          renderedAgeAtEvent = `${RIBBON}+ ${diffAnnotation}${Math.floor(theDiff)}`;
         } else if (isEventForBioPerson && aFact.evnt == "Birth") {
           renderedAgeAtEvent = "";
         } else {
           renderedAgeAtEvent = tlpAgeAtEvent.annotatedAge;
         }
-        // if (tlpDead == true) {
-        //   const theDiff = parseInt(bpAgeAtEvent - tlpDeadAge);
-        //   bpAge = "&#x1F397;+ " + theDiff;
-        // }
-        // let theBPAge;
-        // if (aboutAge != "" && bpAge != "") {
-        //   theBPAge = "(" + bpAge + ")";
-        // } else {
-        //   theBPAge = bpAge;
-        // }
-        // if (hasBdate == false) {
-        //   theBPAge = "";
-        // }
-        // const tlBioAge =
-        //   "<td class='tlBioAge'>" +
-        //   (aFact.evnt == "Death" && aFact.wtId == person.Name ? "&#x1F397; " : "") +
-        //   theBPAge +
-        //   "</td>";
-        // if (aFact.relation == undefined || isEventForBioPerson) {
-        //   aFact.relation = "";
-        // }
         const tlBioAge =
           "<td class='tlBioAge'>" +
           (aFact.evnt == "Death" && aFact.wtId == person.Name ? `${RIBBON} ` : "") +
@@ -526,21 +478,6 @@ export function timeline(id = false) {
         }
         const tlFirstName = "<a href='https://" + mainDomain + "/wiki/" + aFact.wtId + "'>" + fNames + "</a>";
         const tlEventLocation = "<td class='tlEventLocation'>" + aFact.location + "</td>";
-
-        // if (aPersonBD.Approx == true) {
-        //   aboutAge = "~";
-        // }
-        // let aPersonAge = getAge(new Date(aPersonBD.Date), new Date(evDate.Date));
-        // if (aPersonAge == 0 || aPersonBD.Date.match(/0000/) != null) {
-        //   aPersonAge = "";
-        //   aboutAge = "";
-        // }
-        // let theAge;
-        // if (aboutAge != "" && aPersonAge != "") {
-        //   theAge = "(" + aPersonAge + ")";
-        // } else {
-        //   theAge = aPersonAge;
-        // }
 
         const evPersonAge = ageAtEvent(evPersonBirth, eventDate);
         let renderedEvpAge = evPersonAge.annotatedAge;

@@ -5,7 +5,7 @@ Created By: Ian Beacall (Beacall-6)
 import $ from "jquery";
 import "jquery-ui/ui/widgets/draggable";
 import { getRelatives } from "wikitree-js";
-import { createProfileSubmenuLink, familyArray, isOK, htmlEntities } from "../../core/common";
+import { createProfileSubmenuLink, familyArray, isOK, htmlEntities, setAdjustedDates } from "../../core/common";
 import { mainDomain, isSearchPage } from "../../core/pageType";
 
 import { shouldInitializeFeature } from "../../core/options/options_storage";
@@ -207,6 +207,7 @@ export function peopleToTable(kPeople) {
   );
   kPeople.forEach(function (kPers) {
     if (kPers) {
+      setAdjustedDates(kPers);
       let rClass = "";
       kPers.RelationShow = kPers.Relation;
       if (kPers.Relation == undefined || kPers.Active) {

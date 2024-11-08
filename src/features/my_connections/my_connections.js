@@ -8,7 +8,15 @@ import "./my_connections.css";
 import "jquery-ui/ui/widgets/draggable";
 import { getAge } from "../change_family_lists/change_family_lists";
 import { getWikiTreePage } from "../../core/API/wwwWikiTree";
-import { isOK, htmlEntities, extractRelatives, treeImageURL, getUserNumId, isLoggedIntoAPI } from "../../core/common";
+import {
+  ageAtDeath,
+  extractRelatives,
+  getUserNumId,
+  htmlEntities,
+  isLoggedIntoAPI,
+  isOK,
+  treeImageURL,
+} from "../../core/common";
 import { ymdFix, showFamilySheet, displayName } from "../familyGroup/familyGroup";
 import { ancestorType } from "../distanceAndRelationship/distanceAndRelationship";
 import { getPeople } from "../dna_table/dna_table";
@@ -375,79 +383,6 @@ async function myConnectionsCount() {
     window.currentDegreeNum = lastH3;
     myConnectionsCountPt2(lastH3, ols, degreeCountTable);
   }, 2000);
-}
-
-/**
- * Calculates the age at death for a given person.
- *
- * @param {Object} person - The person to calculate the age at death for.
- * @param {boolean} [showStatus=true] - Determines whether to show the status indicator. Defaults to `true`.
- * @returns {(false|string[])} Returns `false` if the age could not be calculated or an array containing the full years, and days, and total days between the birth and death dates.
- *
- * @example
- * const person = {
- *   BirthDate: '1960-01-01',
- *   DeathDate: '2021-03-01',
- *   DataStatus: { DeathDate: 'exact' }
- * };
- * ageAtDeath(person); // Returns ['61', '0', '22245']
- */
-export function ageAtDeath(person, showStatus = true) {
-  // ages
-  let about = "";
-  let diedAged = "";
-  if (person?.BirthDate != undefined) {
-    if (person?.BirthDate.length == 4) {
-      person.BirthDate = person.BirthDate + "-00-00";
-    }
-    if (person?.DeathDate.length == 4) {
-      person.DeathDate = person.DeathDate + "-00-00";
-    }
-    if (
-      person["BirthDate"].length == 10 &&
-      person["BirthDate"] != "0000-00-00" &&
-      person["DeathDate"].length == 10 &&
-      person["DeathDate"] != "0000-00-00"
-    ) {
-      about = "";
-      let obDateBits = person["BirthDate"].split("-");
-      if (obDateBits[1] == "00") {
-        obDateBits[1] = "06";
-        obDateBits[2] = "15";
-        about = "~";
-      } else if (obDateBits[2] == "00") {
-        obDateBits[2] = "15";
-        about = "~";
-      }
-      let odDateBits = person["DeathDate"].split("-");
-      if (odDateBits[1] == "00") {
-        odDateBits[1] = "06";
-        odDateBits[2] = "15";
-        about = "~";
-      } else if (odDateBits[2] == "00") {
-        odDateBits[2] = "15";
-        about = "~";
-      }
-      diedAged = getAge({
-        start: { year: obDateBits[0], month: obDateBits[1], date: obDateBits[2] },
-        end: { year: odDateBits[0], month: odDateBits[1], date: odDateBits[2] },
-      });
-    } else {
-      diedAged = "";
-    }
-  }
-  if (person?.DataStatus?.DeathDate) {
-    if (person.DataStatus.DeathDate == "after") {
-      about = ">";
-    }
-  }
-  if (diedAged == "" && diedAged != "0") {
-    return false;
-  } else if (showStatus == false) {
-    return diedAged;
-  } else {
-    return about + diedAged;
-  }
 }
 
 window.myConnectionsCompletedMore = [];
@@ -1084,7 +1019,7 @@ export async function addPeopleTable(IDstring, tableID, insAfter, tableClass = "
         missingMotherCell = "<td class='missingPersonCell'></td>";
         missingSpouseCell = "<td class='missingPersonCell'></td>";
         missingChildrenCell = "<td class='missingPersonCell'></td>";
-        let deathAge = ageAtDeath(mPerson, false);
+        const deathAge = ageAtDeath(mPerson);
         if (mPerson?.Name) {
           let thisLink = $("ol[id*='gen'] a[href='/wiki/" + htmlEntities(mPerson.Name) + "']");
           if (mPerson.Father == 0) {
@@ -1101,7 +1036,7 @@ export async function addPeopleTable(IDstring, tableID, insAfter, tableClass = "
             ).insertBefore(thisLink);
           }
           if (
-            (deathAge === false || deathAge > 15) &&
+            (deathAge.age === "" || deathAge.age > 15) &&
             mPerson?.Spouses?.length == 0 &&
             mPerson.DataStatus?.Spouse != "blank"
           ) {
@@ -1124,7 +1059,7 @@ export async function addPeopleTable(IDstring, tableID, insAfter, tableClass = "
               oChildrenNumber = oChildren.length;
               missingChildrenCell = "<td class='missingPersonCell'>" + oChildrenNumber + "</td>";
             } else if (
-              deathAge[0] > 12 &&
+              deathAge.age > 12 &&
               mPerson.DataStatus.Spouse != "Null" &&
               mPerson.DataStatus.Spouse != "Blank"
             ) {
@@ -1695,7 +1630,7 @@ export async function addPeopleTable(IDstring, tableID, insAfter, tableClass = "
         editedText = dataEdited.replace(/^([0-9]{4})([0-9]{2})([0-9]{2})/, "$1-$2-$3");
       }
 
-      let deathAge = ageAtDeath(mPerson)[0];
+      const deathAge = ageAtDeath(mPerson);
       let dataMissingFatherNumber = mPerson.Father == 0 ? 0 : 1;
       let dataMissingFather = "data-missing-father='" + dataMissingFatherNumber + "' ";
       let dataMissingMotherNumber = mPerson.Father == 0 ? 0 : 1;
@@ -1703,7 +1638,7 @@ export async function addPeopleTable(IDstring, tableID, insAfter, tableClass = "
       let dataMissingSpouseNumber;
       if (mPerson.Spouses) {
         dataMissingSpouseNumber =
-          mPerson.Spouses.length == 0 && mPerson.DataStatus.Spouse != "Blank" && deathAge > 12
+          mPerson.Spouses.length == 0 && mPerson.DataStatus.Spouse != "Blank" && deathAge.age > 12
             ? 100
             : Object.keys(mPerson.Spouses).length;
       }
@@ -1711,7 +1646,7 @@ export async function addPeopleTable(IDstring, tableID, insAfter, tableClass = "
       let dataMissingChildrenNumber;
       if (mPerson.Children) {
         dataMissingChildrenNumber =
-          mPerson.Children.length == 0 && deathAge > 12 ? 100 : Object.keys(mPerson.Children).length;
+          mPerson.Children.length == 0 && deathAge.age > 12 ? 100 : Object.keys(mPerson.Children).length;
       }
       let dataMissingChildren = "data-missing-children='" + dataMissingChildrenNumber + "' ";
       const dataConnected = "data-connected='" + mPerson.Connected + "' ";
