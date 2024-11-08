@@ -103,7 +103,7 @@ export async function selectCIB(data, hideTopLevel) {
       tb.selEnd = tb.selStart + tb.inserttext.length;
       tb.birthLocationResult = "";
       tb.deathLocationResult = "";
-      tb.addToSummary = "Added " + tb.elDlgCIB.querySelector("#cb1").value + " Category";
+      tb.addToSummary = "Added " + tb.elDlgCIB.querySelector("#cb1").value + " Category. ";
       wtUpdateEdit();
     } else {
       tb.elDlgCIB.close();
