@@ -1208,18 +1208,20 @@ class RangeringTool {
   }
 
   // Function to highlight WT markup elements
+  /*
   highlightMarkup(text) {
     // Escape HTML characters
     let escapedText = this.escapeHtml(text);
 
     // Highlight headings (== Heading == to ===== Heading =====)
     escapedText = escapedText.replace(/(={2,5})([^=]+)\1/g, function (match, p1, p2) {
-      var level = p1.length; // Heading level based on number of '='
+      let level = p1.length; // Heading level based on number of '='
       return '<span class="h' + level + '">' + match + "</span>";
     });
 
     // Highlight entire references and ref tags
     escapedText = escapedText.replace(
+      // Regular expression to match <ref> tags, including self-closing and non-self-closing variants
       /(&lt;ref\b[^&]*?&gt;)([\s\S]*?)(&lt;\/ref&gt;)|(&lt;ref\b[^&]*?\/&gt;)/gi,
       function (match, p1, p2, p3, p4) {
         if (p4) {
@@ -1246,6 +1248,55 @@ class RangeringTool {
       function (match, p1, p2) {
         // p1: '== Sources ==' heading
         // p2: Content after the heading up to the next heading or end of text
+        // Process p2 to highlight lines starting with '*'
+        let processedContent = p2.replace(/(^\*)(.*$)/gm, function (fullMatch, bullet, restOfLine) {
+          return '<span class="source-line"><span class="bullet">' + bullet + "</span>" + restOfLine + "</span>";
+        });
+        return p1 + processedContent;
+      }
+    );
+
+    // Return the processed text
+    return escapedText;
+  }
+    */
+
+  highlightMarkup(text) {
+    // Escape HTML characters
+    let escapedText = this.escapeHtml(text);
+
+    // Highlight headings (== Heading == to ===== Heading =====)
+    escapedText = escapedText.replace(/(={2,5})([^=]+)\1/g, function (match, p1, p2) {
+      let level = p1.length; // Heading level based on number of '='
+      return '<span class="h' + level + '">' + match + "</span>";
+    });
+
+    // Highlight self-closing <ref/> tags first
+    escapedText = escapedText.replace(/(&lt;ref\b[^&]*?\/&gt;)/gi, function (match) {
+      return '<span class="reference"><span class="ref-tag">' + match + "</span></span>";
+    });
+
+    // Highlight paired <ref>...</ref> tags, ensuring they are matched separately
+    escapedText = escapedText.replace(/(&lt;ref\b[^&]*?&gt;)([\s\S]*?)(&lt;\/ref&gt;)/gi, function (match, p1, p2, p3) {
+      // Ensure self-closing tags inside p2 are not treated as part of a match
+      if (p2.includes('<span class="ref-tag">')) {
+        return match; // Return unchanged if there's already highlighted content
+      }
+      return (
+        '<span class="reference"><span class="ref-tag">' +
+        p1 +
+        "</span>" +
+        p2 +
+        '<span class="ref-tag">' +
+        p3 +
+        "</span></span>"
+      );
+    });
+
+    // Highlight lines starting with '*' in the '== Sources ==' section, including the '*'
+    escapedText = escapedText.replace(
+      /(<span class="h[2-5]">== Sources ==<\/span>)([\s\S]*?)(?=(<span class="h[2-5]">|$))/i,
+      function (match, p1, p2) {
         // Process p2 to highlight lines starting with '*'
         let processedContent = p2.replace(/(^\*)(.*$)/gm, function (fullMatch, bullet, restOfLine) {
           return '<span class="source-line"><span class="bullet">' + bullet + "</span>" + restOfLine + "</span>";
