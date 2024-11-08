@@ -702,6 +702,7 @@ function acceptPMs() {
     const params = new URLSearchParams(window.location.search);
     const PMsubject = params.get("PMsubject");
     const PMbody = params.get("PMbody");
+    const PManswer = "ten";
     if (PMbody) {
       let targetNode = document.body; // Replace with a closer parent if possible
 
@@ -720,6 +721,7 @@ function acceptPMs() {
               if (targetElement) {
                 $("#privateMessage-comments").val(PMbody);
                 $("#privateMessage-subject").val(PMsubject);
+                $("#privateMessage-answer").val(PManswer);
                 observer.disconnect();
               }
             }
