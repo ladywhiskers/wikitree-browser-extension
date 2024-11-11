@@ -6187,7 +6187,7 @@ export async function afterBioHeadingTextAndObjects(thingsToAddAfterBioHeading =
   if (window.autoBioOptions?.diedYoung) {
     try {
       const deathAge = ageAtDeath(window.profilePerson);
-      if (typeof deathAge.age !== "") {
+      if (deathAge.age !== "") {
         const alreadyHasDiedYoungTemplate = thingsToAddAfterBioHeading.some((item) => item.startsWith("{{Died Young"));
 
         if (deathAge.age < 17 && !alreadyHasDiedYoungTemplate) {
