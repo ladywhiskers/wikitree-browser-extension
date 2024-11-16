@@ -37,8 +37,6 @@ class ShowEdits {
     // Check if CodeMirror is enabled
     const _isCodeMirrorEnabled = await isCodeMirrorEnabled();
     if (_isCodeMirrorEnabled) {
-      console.log("CodeMirror is enabled, setting up MutationObserver...");
-
       // Create and attach the MutationObserver for CodeMirror
       const targetNode = document.querySelector("div.CodeMirror");
       if (targetNode) {
@@ -60,9 +58,6 @@ class ShowEdits {
         this.codeMirrorObserver = observer; // Store the observer for later disconnecting if needed
       }
     } else {
-      // Fallback for plain textarea mode
-      console.log("CodeMirror is not enabled, setting up input listener on #wpTextbox1...");
-
       // Listen for changes in the textarea (plain text mode)
       this.$textArea.on("input.showEdits", () => this.checkForChanges());
     }
