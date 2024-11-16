@@ -2167,6 +2167,9 @@ function sourcerCensusWithNoTable(reference, nameMatchPattern) {
                     ".";
                 }
                 familyText = familyText.replace(/; $/, ".").replace(/;(.*?)$/, "; and$1");
+                if (familyText.includes(" and ")) {
+                  familyText = familyText.replace(/ was /, " were ");
+                }
                 text += familyText;
               }
             }
@@ -2203,7 +2206,20 @@ function sourcerCensusWithNoTable(reference, nameMatchPattern) {
           if (occupation) {
             result += `, ${occupation},`;
           }
-          result += ` was living in ${minimalPlace(place.replace(", USA", ""))}`;
+
+          let wasWere = result.match(/ and /) ? "were" : "was";
+          if (place.match(/ Jan| Feb| Mar| Apr| May| Jun| Jul| Aug| Sep| Oct| Nov| Dec|/)) {
+            place = "";
+          }
+          const placeDisplayText = place ? ` in ${minimalPlace(place.replace(", USA", ""))}` : ``;
+          result += ` ${wasWere} living${placeDisplayText}`;
+
+          const wereLivingMatch = result.match(/(In .*?, )(.*) and (.*) were living\./);
+
+          if (wereLivingMatch) {
+            result = wereLivingMatch[1] + wereLivingMatch[2] + " and " + wereLivingMatch[3] + " were living together.";
+          }
+
           return result;
         });
       }
@@ -2273,13 +2289,16 @@ function familySearchCensusWithNoTable(reference, firstName, ageAtCensus, nameMa
 
     if (reference.Residence) {
       if (text.match(/in the household of/) == null) {
-        text += " was living";
+        const wasWere = text.match(/ and /) ? "were" : "was";
+        text += ` ${wasWere} living`;
       }
       /* Remove country name */
       const residenceOut = reference?.Residence
         ? reference.Residence.replace(/, (United States|England|Scotland|Canada|Wales|Australia)/, "")
         : "";
-      text += " in " + minimalPlace(residenceOut);
+      if (residenceOut.match(/ Jan| Feb| Mar| Apr| May| Jun| Jul| Aug| Sep| Oct| Nov| Dec|/) == null) {
+        text += " in " + minimalPlace(residenceOut);
+      }
     }
 
     text += ".";
@@ -2292,6 +2311,12 @@ function familySearchCensusWithNoTable(reference, firstName, ageAtCensus, nameMa
     }
     if (text.match(firstName) && ageAtCensus) {
       text = text.replace(firstName, firstName + ageBit + " ").replaceAll(/'''/g, "");
+    }
+
+    const wereLivingMatch = text.match(/(In .*?, )(.*) and (.*) were living\./);
+
+    if (wereLivingMatch) {
+      text = wereLivingMatch[1] + wereLivingMatch[2] + " and " + wereLivingMatch[3] + " were living together.";
     }
   }
 
@@ -3766,7 +3791,8 @@ function buildCensusNarratives() {
             if (residencePlaceMatch) {
               const residencePlace = residencePlaceMatch[1].replace(/,\s*United States/, "").trim(); // Removing ', United States' for brevity
               if (formattedSentence) {
-                formattedSentence += " was living in " + residencePlace + ".";
+                const wasWere = formattedSentence.match(/and/) ? "were" : "was";
+                formattedSentence += ` ${wasWere} living in ${residencePlace} .`;
               } else {
                 formattedSentence += "Living in " + residencePlace + "."; // In case the name is not mentioned
               }
@@ -5564,8 +5590,12 @@ function getFamilySearchBirthDetails(aRef) {
 
 function getFamilySearchDeathDetails(aRef) {
   const detailsPattern = /familysearch.*in death record for (son|daughter).*?(\d+.*?\d) in (.*?)(\.|$)/i;
+  // "North Carolina Deaths, 1931-1994", , FamilySearch (https://www.familysearch.org/ark:/61903/1:1:FGNQ-J7Z : Mon Oct 07 21:48:25 UTC 2024), Entry for Mitchell Arthur Cagle and Henry Cagle, 1942. Death of son.
+  const detailsPattern2 = /(.*?) Deaths.*?familysearch\.org.*?Entry for (.+?) and (.+?), (.*?)\. Death of (.*?)\./i;
+
   const detailsPatternMatch = aRef.Text.match(detailsPattern);
-  if (detailsPatternMatch == null) {
+  const detailsPatternMatch2 = aRef.Text.match(detailsPattern2);
+  if (detailsPatternMatch == null && detailsPatternMatch2 == null) {
     return;
   }
   console.log(detailsPatternMatch);
@@ -5584,6 +5614,15 @@ function getFamilySearchDeathDetails(aRef) {
       aRef["Relation"] = deathOfChildMatch[1];
       aRef["Name"] = deathOfChildMatch[2];
     }
+  } else if (detailsPatternMatch2) {
+    aRef["Death Date"] = detailsPatternMatch2[3];
+    const yearMatch = detailsPatternMatch2[3].match(/\d{4}/);
+    if (yearMatch) {
+      aRef.Year = yearMatch[0];
+    }
+    aRef["Death Place"] = detailsPatternMatch2[1];
+    aRef["Parents"] = detailsPatternMatch2[3];
+    aRef["Name"] = detailsPatternMatch2[2];
   }
 }
 
@@ -5687,21 +5726,16 @@ function getFamilyFromCitations() {
   refs.forEach(function (aRef) {
     if (aRef.Text.match(/Death of (son|daughter)/i)) {
       getFamilySearchDeathDetails(aRef);
+      console.log(aRef);
 
       const refFirstName = aRef.Name.split(" ")[0];
       // Find window.profilePerson.Children[...] where key starts with refFirstName
-      // How?
       const childMatch = Object.keys(window.profilePerson.Children).filter((key) => key.startsWith(refFirstName));
-      // console.log(aRef);
-      // console.log(window.profilePerson.Children);
-      // console.log("childMatch", childMatch);
 
       if (childMatch.length) {
         window.profilePerson.Children[childMatch[0]].DeathDate = getYYYYMMDD(aRef["Death Date"]);
         window.profilePerson.Children[childMatch[0]].DeathLocation = aRef["Death Place"];
       }
-
-      //console.log(aRef);
     }
   });
 }
