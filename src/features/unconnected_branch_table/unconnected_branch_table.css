@@ -114,3 +114,15 @@
 img.unconnectedBranch {
   cursor: pointer;
 }
+
+body.page-Space_Notables_Project_Unconnected_Profiles table.wikitable tr.connected {
+  background-color: #efe;
+  display: none;
+}
+
+body.page-Space_Notables_Project_Unconnected_Profiles table.wikitable tr.odd {
+  background-color: #fff;
+}
+body.page-Space_Notables_Project_Unconnected_Profiles table.wikitable tr.even {
+  background-color: #f9f9f9;
+}

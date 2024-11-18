@@ -65,8 +65,35 @@ $(document).on("click", ".unconnectedBranch", function (event) {
 });
 
 const littleTree = chrome.runtime.getURL("images/tree.jpg");
-function doNotablesSpace() {
+async function doNotablesSpace() {
   const $table = $("table.wikitable");
+
+  // Get all ids for getPerson
+  const ids = [];
+  $table.find("tr").each(function () {
+    const link = $(this).find("a:first");
+    if (link.length && link.attr("href").includes("wiki/")) {
+      const id = link.attr("href").split("/").pop();
+      ids.push(id);
+    }
+  });
+
+  // Get all the people with getPerson: just Name and Connected
+  const people = await getPeople(ids.join(","), 0, 0, 0, 0, 0, "Name,Connected", "WBE_unconnected_branch");
+  const oPeople = people[0].people;
+  // Add class to rows of any connected people
+  $table.find("tr").each(function () {
+    const link = $(this).find("a:first");
+
+    if (link.length && link.attr("href").includes("wiki/")) {
+      const id = link.attr("href").split("/").pop();
+      const person = Object.values(oPeople).find((p) => p.Name == id);
+      if (person?.Connected) {
+        $(this).addClass("connected");
+      }
+    }
+  });
+
   setTimeout(function () {
     $(".x-sidebar").remove();
     $(".x-content").css("width", "auto");
@@ -79,7 +106,9 @@ function doNotablesSpace() {
     if (link.length && link.attr("href").includes("wiki/")) {
       const id = link.attr("href").split("/").pop();
       const realName = link.text();
-      const img = $(`<img src="${littleTree}" title="See Unconnected Branch Table" class="unconnectedBranch">`).data("id", id).data("realName", realName);
+      const img = $(`<img src="${littleTree}" title="See Unconnected Branch Table" class="unconnectedBranch">`)
+        .data("id", id)
+        .data("realName", realName);
       td.append(img);
     }
   });
@@ -335,25 +364,54 @@ async function unconnectedBranch(e) {
     profileID = $("a.pureCssMenui0 span.person").text();
   }
 
-  // Check if the data for the current profileID is already fetched
-  if (!window.unconnectedBranch || window.unconnectedBranch.profileID !== profileID) {
-    const fields =
-      "FirstName,MiddleName,LastNameAtBirth,LastNameCurrent,LastNameOther,RealName,BirthDate,BirthLocation, DeathDate,DeathLocation, BirthDateDecade,DeathDateDecade,Touched, Created, Gender, Father, Mother,Id,Name,Privacy,DataStatus,ShortName,Derived.BirthNamePrivate,Derived.BirthName,LongNamePrivate";
-    const people = await getPeople(profileID, 0, 0, 0, 10, 0, fields, "WBE_unconnected_branch");
-    window.unconnectedBranch = {
-      profileID: profileID,
-      data: people,
-    };
+  // Initialize the cache object if it doesn't exist
+  if (!window.unconnectedBranch) {
+    window.unconnectedBranch = {};
+    // Optional: For cache size limit
+    window.unconnectedBranchCacheOrder = [];
   }
-  const data = window.unconnectedBranch.data;
+
+  const CACHE_TTL = 60 * 60 * 1000; // Optional TTL
+  const MAX_CACHE_SIZE = 100; // Optional cache size limit
+  const now = Date.now();
+
+  const cachedData = window.unconnectedBranch[profileID];
+
+  if (!cachedData || now - cachedData.timestamp > CACHE_TTL) {
+    const fields =
+      "FirstName,MiddleName,LastNameAtBirth,LastNameCurrent,LastNameOther,RealName,BirthDate,BirthLocation,DeathDate,DeathLocation,BirthDateDecade,DeathDateDecade,Touched,Created,Gender,Father,Mother,Id,Name,Privacy,DataStatus,ShortName,Derived.BirthNamePrivate,Derived.BirthName,LongNamePrivate,Connected";
+    const people = await getPeople(profileID, 0, 0, 0, 10, 0, fields, "WBE_unconnected_branch");
+    // Store the data in the cache with timestamp
+    window.unconnectedBranch[profileID] = {
+      data: people,
+      timestamp: now,
+    };
+
+    // Optional: Manage cache size
+    window.unconnectedBranchCacheOrder.push(profileID);
+    if (window.unconnectedBranchCacheOrder.length > MAX_CACHE_SIZE) {
+      const oldestProfileID = window.unconnectedBranchCacheOrder.shift();
+      delete window.unconnectedBranch[oldestProfileID];
+    }
+  } else {
+    // Optional: Update cache order for LRU policy
+    const index = window.unconnectedBranchCacheOrder.indexOf(profileID);
+    if (index > -1) {
+      window.unconnectedBranchCacheOrder.splice(index, 1);
+      window.unconnectedBranchCacheOrder.push(profileID);
+    }
+  }
+  const data = window.unconnectedBranch[profileID].data;
   let peopleArray = Object.values(data[0].people);
+  const isConnected = peopleArray[0].Connected;
+  const branchText = isConnected ? "Connected! Connections" : "Unconnected Branch";
   const realName = $(button).data("realName") || $("h1.span[itemprop='name']").text() || "";
   const theTable = $(
     `<div id='unconnectedBranchTable'>
     <table>
     <caption>
     <w>↔</w>
-    <x class='small button'>x</x>${realName ? realName + ": " : ""}Unconnected Branch</caption>
+    <x class='small button'>x</x>${realName ? realName + ": " : ""}${branchText}</caption>
     <thead>
     <tr>
     <th></th>
