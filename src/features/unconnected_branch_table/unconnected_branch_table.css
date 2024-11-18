@@ -110,3 +110,7 @@
   border-radius: 50%;
   border: 2px solid forestgreen;
 }
+
+img.unconnectedBranch {
+  cursor: pointer;
+}

@@ -2,13 +2,14 @@ import $ from "jquery";
 import "./unconnected_branch_table.css";
 import { checkIfFeatureEnabled } from "../../core/options/options_storage";
 import { createProfileSubmenuLink, isOK } from "../../core/common";
-import { mainDomain } from "../../core/pageType";
+import { mainDomain, isUnconnectedNotables } from "../../core/pageType";
 import { getPeople } from "../dna_table/dna_table";
 import { showFamilySheet } from "../familyGroup/familyGroup";
 import { assignPersonNames } from "../auto_bio/auto_bio";
 import { addFiltersToWikitables, repositionFilterRow } from "../table_filters/table_filters";
 import { getProfile } from "../distanceAndRelationship/distanceAndRelationship";
 import "jquery-ui/ui/widgets/draggable";
+import { set } from "date-fns";
 
 async function initUnconnectedBranch() {
   const profileID = $("a.pureCssMenui0 span.person").text();
@@ -21,17 +22,67 @@ async function initUnconnectedBranch() {
         text: "Unconnected Branch",
         url: "#n",
       };
-      createProfileSubmenuLink(options);
-      $("#unconnectedBranchButton").on("click", function (event) {
-        if ($("#unconnectedBranchTable").length == 0) {
-          addShakingTree(event);
-          unconnectedBranch();
-        } else {
-          $("#unconnectedBranchTable").slideToggle();
-        }
-      });
+      if (!isUnconnectedNotables) {
+        createProfileSubmenuLink(options);
+        $("#unconnectedBranchButton").on("click", function (event) {
+          if ($("#unconnectedBranchTable").length == 0) {
+            addShakingTree(event);
+            unconnectedBranch();
+          } else {
+            $("#unconnectedBranchTable").slideToggle();
+          }
+        });
+      } else {
+        doNotablesSpace();
+      }
     }
   }
+}
+
+$(document).on("click", ".unconnectedBranch", function (event) {
+  console.log("Unconnected branch clicked");
+  const profileID = $(this).data("id");
+  console.log("Profile ID:", profileID);
+  if ($("#unconnectedBranchTable").length == 0) {
+    console.log("Unconnected branch table not found, adding shaking tree and initializing unconnected branch");
+    addShakingTree(event);
+    unconnectedBranch(event);
+  } else if ($("#unconnectedBranchTable").data("id") == profileID) {
+    console.log("Toggling unconnected branch table visibility");
+    $("#unconnectedBranchTable").slideToggle();
+  } else {
+    console.log("Different profile ID, sliding up and reinitializing unconnected branch");
+    $("#unconnectedBranchTable").slideUp("swing", function () {
+      setTimeout(function () {
+        $("#unconnectedBranchTable").remove();
+        setTimeout(function () {
+          addShakingTree(event);
+          unconnectedBranch(event);
+        }, 500);
+      }, 500);
+    });
+  }
+});
+
+const littleTree = chrome.runtime.getURL("images/tree.jpg");
+function doNotablesSpace() {
+  const $table = $("table.wikitable");
+  setTimeout(function () {
+    $(".x-sidebar").remove();
+    $(".x-content").css("width", "auto");
+  }, 1000);
+  // Add a new column to the start of the table
+  $table.find("tr").each(function () {
+    const link = $(this).find("a:first");
+    const td = $(`<td></td>`);
+    $(this).prepend(td);
+    if (link.length && link.attr("href").includes("wiki/")) {
+      const id = link.attr("href").split("/").pop();
+      const realName = link.text();
+      const img = $(`<img src="${littleTree}" title="See Unconnected Branch Table" class="unconnectedBranch">`).data("id", id).data("realName", realName);
+      td.append(img);
+    }
+  });
 }
 
 function isLessThan24HoursAgo(dateString) {
@@ -273,22 +324,36 @@ function makeTableSortable(table) {
 
 const homeIcon = chrome.runtime.getURL("images/Home_icon.png");
 
-async function unconnectedBranch() {
-  if (!window.unconnectedBranch) {
-    const profileID = $("a.pureCssMenui0 span.person").text();
+async function unconnectedBranch(e) {
+  console.log(e);
+  const button = e?.target;
+  let profileID;
+  if (button) {
+    profileID = $(button).data("id");
+  }
+  if (!profileID) {
+    profileID = $("a.pureCssMenui0 span.person").text();
+  }
+
+  // Check if the data for the current profileID is already fetched
+  if (!window.unconnectedBranch || window.unconnectedBranch.profileID !== profileID) {
     const fields =
       "FirstName,MiddleName,LastNameAtBirth,LastNameCurrent,LastNameOther,RealName,BirthDate,BirthLocation, DeathDate,DeathLocation, BirthDateDecade,DeathDateDecade,Touched, Created, Gender, Father, Mother,Id,Name,Privacy,DataStatus,ShortName,Derived.BirthNamePrivate,Derived.BirthName,LongNamePrivate";
     const people = await getPeople(profileID, 0, 0, 0, 10, 0, fields, "WBE_unconnected_branch");
-    window.unconnectedBranch = people;
+    window.unconnectedBranch = {
+      profileID: profileID,
+      data: people,
+    };
   }
-  const data = window.unconnectedBranch;
+  const data = window.unconnectedBranch.data;
   let peopleArray = Object.values(data[0].people);
+  const realName = $(button).data("realName") || $("h1.span[itemprop='name']").text() || "";
   const theTable = $(
     `<div id='unconnectedBranchTable'>
     <table>
     <caption>
     <w>↔</w>
-    <x class='small button'>x</x>Unconnected Branch</caption>
+    <x class='small button'>x</x>${realName ? realName + ": " : ""}Unconnected Branch</caption>
     <thead>
     <tr>
     <th></th>
@@ -397,13 +462,21 @@ async function unconnectedBranch() {
   });
 
   theTable.appendTo("body");
+  theTable.data("id", profileID);
   theTable.draggable();
   theTable.fadeIn();
   theTable.on("dblclick", function () {
     $(this).fadeOut();
   });
-  const buttonPosition = $("#unconnectedBranchButton").offset();
-  const buttonHeight = $("#unconnectedBranchButton").height();
+  let buttonPosition;
+  let buttonHeight;
+  if (button) {
+    buttonPosition = $(button).offset();
+    buttonHeight = $(button).height();
+  } else {
+    buttonPosition = $("#unconnectedBranchButton").offset();
+    buttonHeight = $("#unconnectedBranchButton").height();
+  }
   const tablePosition = {
     top: buttonPosition.top + buttonHeight + 10,
   };

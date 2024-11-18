@@ -144,6 +144,9 @@ export let isPlusProfileSearch = false;
 // Profile Tree results
 export let isPlusProfileTree = false;
 
+// Notables
+export let isUnconnectedNotables = false;
+
 const domain = decodeURI(window.location.hostname); // path
 
 if (window.location.href.match("Special(:|%3A|%3a)NetworkFeed")) {
@@ -250,6 +253,9 @@ if (domain.match("apps.wikitree.com")) {
       path.match(/\/wiki\/Space:WikiTree_Browser_Extension#/g)
     ) {
       isWBESpace = true;
+    }
+    if (path.match(/\/wiki\/Space.*Notables.*/g) && path.match(/\/wiki\/Space.*Unconnected.*/g)) {
+      isUnconnectedNotables = true;
     }
   } else if (
     // Space History Page https://wikitree.com/index.php?title=Special:NetworkFeed&space=41770011
