@@ -5593,6 +5593,12 @@ function getFamilySearchDeathDetails(aRef) {
 }
 
 function compareLastName(name, person) {
+  if (!name) {
+    return { FirstName: person?.FirstName, LastNameAtBirth: person?.LastNameAtBirth, Name: "" };
+  }
+  if (!person) {
+    return { FirstName: "", LastNameAtBirth: "", Name: name };
+  }
   // console.log("Comparing last name for:", name, person);
   const nameParts = name.split(" ");
   // console.log("Name parts:", nameParts);
