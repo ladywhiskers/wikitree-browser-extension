@@ -1057,10 +1057,25 @@ function PerformActualProfileChanges() {
 
   const bHasAdd = urlParams.has("addCat");
   const bHasRem = urlParams.has("remCat");
+  const bHasAddCats = urlParams.has("addCats");
+
   let summary = "";
   let cat = "";
   const cat2 = urlParams.get("addCat2") || "";
-  if (bHasAdd) {
+  let cats = [];
+  if (bHasAddCats) {
+    cats = JSON.parse(urlParams.get("addCats"));
+    cats.forEach((cat) => {
+      AddCat(wpTextbox1, cat);
+    });
+  }
+
+  if (bHasAddCats) {
+    summary = "adding " + "'" + cats.join("', '") + "'";
+    if (categoryManagementOptions?.customChangeSummary) {
+      summary += " " + categoryManagementOptions.customChangeSummary;
+    }
+  } else if (bHasAdd) {
     cat = urlParams.get("addCat");
     AddCat(wpTextbox1, cat);
     AddCat(wpTextbox1, cat2);
@@ -1072,6 +1087,7 @@ function PerformActualProfileChanges() {
       summary += " " + categoryManagementOptions.customChangeSummary;
     }
   }
+
   if (bHasRem) {
     //because replace only replaces first occurrence
     wpTextbox1.value = wpTextbox1.value.split("Category: ").join("Category:");
@@ -1091,7 +1107,7 @@ function PerformActualProfileChanges() {
   }
   ReactivateEnhancedEditorIfNeeded(enhancedEditorOn);
 
-  if (bHasAdd || bHasRem) {
+  if (bHasAdd || bHasRem || bHasAddCats) {
     DoSave("Categories: " + summary);
 
     const currentBio = wpTextbox1.value;
