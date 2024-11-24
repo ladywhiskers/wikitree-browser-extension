@@ -1064,7 +1064,7 @@ function PerformActualProfileChanges() {
   const cat2 = urlParams.get("addCat2") || "";
   let cats = [];
   if (bHasAddCats) {
-    cats = JSON.parse(urlParams.get("addCats"));
+    cats = JSON.parse(decodeURIComponent(urlParams.get("addCats")));
     cats.forEach((cat) => {
       AddCat(wpTextbox1, cat);
     });
@@ -1082,9 +1082,6 @@ function PerformActualProfileChanges() {
     summary = "adding " + "'" + cat + "'";
     if (cat2) {
       summary += " and " + "'" + cat2 + "'";
-    }
-    if (categoryManagementOptions?.customChangeSummary) {
-      summary += " " + categoryManagementOptions.customChangeSummary;
     }
   }
 
@@ -1104,6 +1101,10 @@ function PerformActualProfileChanges() {
       }
       summary = summary + "removing " + "'" + cat + "'";
     }
+  }
+
+  if (categoryManagementOptions?.customChangeSummary) {
+    summary += " " + categoryManagementOptions.customChangeSummary;
   }
   ReactivateEnhancedEditorIfNeeded(enhancedEditorOn);
 
