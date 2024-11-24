@@ -7,14 +7,50 @@ import { shouldInitializeFeature } from "../../core/options/options_storage";
 
 shouldInitializeFeature("makeRadioButtonsDeselectable").then((result) => {
   if (result) {
-    $("input[type='radio']").on("mouseenter", function () {
-      if ($(this).prop("checked") == true) {
-        $(this).on("click", function () {
-          $(this).prop("checked", false);
-        });
-      } else {
-        $(this).off("click");
+    const specifiedRadios = ["#mStatus_DeatDate_blank", "#mStatus_DeathDate_blank"];
+
+    // Names of groups that should not be left blank if specified radios are checked on load
+    const groupsNotToLeaveBlank = [];
+
+    // On page load, check if specified radios are checked
+    specifiedRadios.forEach(function (selector) {
+      const $radio = $(selector);
+      if ($radio.length && $radio.prop("checked")) {
+        const groupName = $radio.attr("name");
+        if (groupName) {
+          groupsNotToLeaveBlank.push(groupName);
+        }
       }
     });
+
+    // Mousedown event for deselectable radios (excluding specified ones)
+    $("input[type='radio']")
+      .not(specifiedRadios.join(", "))
+      .on("mousedown", function () {
+        $(this).data("wasChecked", $(this).prop("checked"));
+      });
+
+    // Click event for deselectable radios (excluding specified ones)
+    $("input[type='radio']")
+      .not(specifiedRadios.join(", "))
+      .on("click", function () {
+        const $radio = $(this);
+        const groupName = $radio.attr("name");
+
+        if ($radio.data("wasChecked")) {
+          if (groupsNotToLeaveBlank.includes(groupName)) {
+            // Do not uncheck if the group should not be left blank
+            $radio.prop("checked", true);
+          } else {
+            // Uncheck the radio
+            $radio.prop("checked", false);
+          }
+        } else {
+          // Reset wasChecked data for all radios in the same group
+          $("input[name='" + groupName + "']")
+            .not($radio)
+            .data("wasChecked", false);
+        }
+      });
   }
 });
