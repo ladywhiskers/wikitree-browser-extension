@@ -2,7 +2,6 @@ import $ from "jquery";
 import { shouldInitializeFeature } from "../../core/options/options_storage";
 import "jquery-ui/ui/widgets/draggable";
 import { fetchPeople } from "../category_filters/category_filters";
-import Cookies from "js-cookie";
 import {
   treeImageURL,
   getObjectStores,

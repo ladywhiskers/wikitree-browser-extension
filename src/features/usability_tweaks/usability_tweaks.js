@@ -1,4 +1,4 @@
-import $ from "jquery";
+import $, { get } from "jquery";
 import Cookies from "js-cookie";
 import {
   mainDomain,
@@ -1207,60 +1207,6 @@ class RangeringTool {
       .replace(/'/g, "&#039;");
   }
 
-  // Function to highlight WT markup elements
-  /*
-  highlightMarkup(text) {
-    // Escape HTML characters
-    let escapedText = this.escapeHtml(text);
-
-    // Highlight headings (== Heading == to ===== Heading =====)
-    escapedText = escapedText.replace(/(={2,5})([^=]+)\1/g, function (match, p1, p2) {
-      let level = p1.length; // Heading level based on number of '='
-      return '<span class="h' + level + '">' + match + "</span>";
-    });
-
-    // Highlight entire references and ref tags
-    escapedText = escapedText.replace(
-      // Regular expression to match <ref> tags, including self-closing and non-self-closing variants
-      /(&lt;ref\b[^&]*?&gt;)([\s\S]*?)(&lt;\/ref&gt;)|(&lt;ref\b[^&]*?\/&gt;)/gi,
-      function (match, p1, p2, p3, p4) {
-        if (p4) {
-          // Self-closing tag
-          return '<span class="reference"><span class="ref-tag">' + p4 + "</span></span>";
-        } else {
-          // Non-self-closing tag
-          return (
-            '<span class="reference"><span class="ref-tag">' +
-            p1 +
-            "</span>" +
-            p2 +
-            '<span class="ref-tag">' +
-            p3 +
-            "</span></span>"
-          );
-        }
-      }
-    );
-
-    // Highlight lines starting with '*' in the '== Sources ==' section, including the '*'
-    escapedText = escapedText.replace(
-      /(<span class="h[2-5]">== Sources ==<\/span>)([\s\S]*?)(?=(<span class="h[2-5]">|$))/i,
-      function (match, p1, p2) {
-        // p1: '== Sources ==' heading
-        // p2: Content after the heading up to the next heading or end of text
-        // Process p2 to highlight lines starting with '*'
-        let processedContent = p2.replace(/(^\*)(.*$)/gm, function (fullMatch, bullet, restOfLine) {
-          return '<span class="source-line"><span class="bullet">' + bullet + "</span>" + restOfLine + "</span>";
-        });
-        return p1 + processedContent;
-      }
-    );
-
-    // Return the processed text
-    return escapedText;
-  }
-    */
-
   highlightMarkup(text) {
     // Escape HTML characters
     let escapedText = this.escapeHtml(text);
@@ -1423,7 +1369,93 @@ class RangeringTool {
 }
 
 let rangeringTool;
-if (isNetworkFeed) {
+const rangers = [
+  "Lee-29092",
+  "Lucas-407",
+  "Gilbert-20491",
+  "Johnson-107455",
+  "Beacall-6",
+  "Snyder-19096",
+  "Mallow-254",
+  "Wycoff-345",
+  "Gardner-10299",
+  "Urbach-13",
+  "Butler-21232",
+  "Potter-10870",
+  "Butter-100",
+  "Robinson-27225",
+  "Weatherall-96",
+  "Franke-313",
+  "Sonczalla-1",
+  "Perkins-11750",
+  "Baxter-4158",
+  "Thames-675",
+  "Skelton-1756",
+  "Evans-9605",
+  "Vaskie-1",
+  "Kolze-7",
+  "Craig-4574",
+  "J-276",
+  "Gürth-8",
+  "Milton-1294",
+  "Stanton-3574",
+  "Skillings-87",
+  "Harden-1880",
+  "Stewart-763",
+  "Kreutzer-114",
+  "Greet-49",
+  "Lamoreaux-297",
+  "Cormier-1939",
+  "Stevens-17832",
+  "Mullins-2069",
+  "Cormack-404",
+  "Kirch-132",
+  "Barrett-8905",
+  "Sands-1865",
+  "Trueblood-273",
+  "Johnson-66920",
+  "Angelo-128",
+  "Roberts-7085",
+  "Sheppard-2686",
+  "Ward-9858",
+  "Seigfreid-16",
+  "Anderson-27686",
+  "Collins-17962",
+  "Stronach-8",
+  "Coleman-5109",
+  "Compton-2184",
+  "Smith-116348",
+  "Baty-260",
+  "Thomas-7679",
+  "Rassinot-1",
+  "Devlin-670",
+  "Laity-45",
+  "Thompson-31031",
+  "Gorman-1067",
+  "Shipman-738",
+  "Beckett-454",
+  "Welburn-134",
+  "Day-1904",
+  "Selman-334",
+  "Tillman-416",
+  "Richardson-7161",
+  "Howe-3137",
+  "Fiscus-32",
+  "Rutherford-448",
+  "Coat-12",
+  "Keniston-36",
+  "Atkinson-107",
+  "Snow-2128",
+  "B-404",
+  "Maxwell-1489",
+  "N.-17",
+  "Brown-8212",
+  "Bech-2",
+  "Langholf-2",
+  "Whitten-1",
+];
+
+if (isNetworkFeed && rangers.includes(getUserWtId())) {
   initBioCheck();
   rangeringTool = new RangeringTool();
 }
