@@ -1072,9 +1072,6 @@ function PerformActualProfileChanges() {
 
   if (bHasAddCats) {
     summary = "adding " + "'" + cats.join("', '") + "'";
-    if (categoryManagementOptions?.customChangeSummary) {
-      summary += " " + categoryManagementOptions.customChangeSummary;
-    }
   } else if (bHasAdd) {
     cat = urlParams.get("addCat");
     AddCat(wpTextbox1, cat);
