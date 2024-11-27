@@ -1147,6 +1147,7 @@ class RangeringTool {
 
     // Display getBio buttons for all profiles
     this.displayBioButtons();
+    console.log("people", this.people);
   }
 
   displayBioButtons() {
@@ -1159,7 +1160,9 @@ class RangeringTool {
         const profileID = decodeURIComponent($(element).attr("href").split("/").pop());
 
         // Find the bio with the same Name as the profileID
-        const person = Object.values(this.people[2]).find((person) => person.Name === profileID);
+        const person = Object.values(this.people[2]).find(
+          (person) => person.Name.toLowerCase() === profileID.toLowerCase()
+        );
 
         if (person) {
           $("#mBirthDate").val(person.BirthDate || "0000-00-00");
