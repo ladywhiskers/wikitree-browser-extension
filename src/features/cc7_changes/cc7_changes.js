@@ -609,6 +609,16 @@ async function fetchCC7FromAPI() {
         limit: limit,
       });
       if (apiResult == null) return null;
+      const rspStatus = apiResult[0].status || "";
+      // Check if we're done
+      getMore = rspStatus.startsWith("Maximum number of profiles");
+      if (!getMore && rspStatus !== "") {
+        console.error("CC7 fetch aborted after API returned status: ", rspStatus);
+        showError(
+          `We received an unexpected response when retrieving your CC7: ${rspStatus}<br>It might help to try again later.`
+        );
+        return null;
+      }
       const people = apiResult[0]?.people;
       let restructuredResult;
       if (people) {
@@ -637,8 +647,6 @@ async function fetchCC7FromAPI() {
         peopleObjectArray = peopleObjectArray.concat(arrayOfObjects);
 
         start += limit;
-        // Check if we're done
-        getMore = apiResult[0].status?.startsWith("Maximum number of profiles");
       } else {
         getMore = false;
       }
