@@ -597,60 +597,80 @@ async function fetchStoredDeltas() {
 async function fetchCC7FromAPI() {
   try {
     let peopleObjectArray = [];
-    let getMore = true;
-    const limit = 1000;
-    let start = 0;
-    while (getMore) {
-      const apiResult = await fetchPeople({
+
+    await getCCUptoDegree(7);
+    // await getCCUptoDegree(6);
+    // await getCCUptoDegree(7, 7);
+
+    async function getCCUptoDegree(toDegree, fromDegree = 0) {
+      let getMore = true;
+      const limit = 1000;
+      let start = 0;
+      let peopleCount = 0;
+      let callCount = 0;
+      const options = {
         keys: db.userId,
         fields: "Id,Name,Meta",
-        nuclear: 7,
+        nuclear: toDegree,
         start: start,
         limit: limit,
-      });
-      if (apiResult == null) return null;
-      const rspStatus = apiResult[0].status || "";
-      // Check if we're done
-      getMore = rspStatus.startsWith("Maximum number of profiles");
-      if (!getMore && rspStatus !== "") {
-        console.error("CC7 fetch aborted after API returned status: ", rspStatus);
-        showError(
-          `We received an unexpected response when retrieving your CC7: ${rspStatus}<br>It might help to try again later.`
-        );
-        return null;
+      };
+      if (fromDegree) {
+        options.minGeneration = fromDegree;
       }
-      const people = apiResult[0]?.people;
-      let restructuredResult;
-      if (people) {
-        restructuredResult = Object.keys(people).reduce((acc, key) => {
-          const entry = people[key];
-          acc[key] = {
-            ...entry,
-            Degrees: entry.Meta.Degrees,
-          };
-          delete acc[key].Meta;
-          return acc;
-        }, {});
-
-        let arrayOfObjects = Object.keys(restructuredResult).map((key) => {
-          return restructuredResult[key];
-        });
-
-        if (GENERATE_DELTA_FOR_TESTING && arrayOfObjects.length > 1) {
-          // Remove a random profile from the list so we can be assured of a change in the CC7
-          // Pick a number between 1 and (number of profiles in the list) - 1
-          const i = Math.floor(Math.random() * arrayOfObjects.length - 2) + 1;
-          console.log(`Removing profile ${i} for testing purposes`, arrayOfObjects[i]);
-          arrayOfObjects = arrayOfObjects.toSpliced(i, 1);
+      while (getMore) {
+        ++callCount;
+        options.start = start;
+        const apiResult = await fetchPeople(options);
+        if (apiResult == null) return null;
+        const rspStatus = apiResult[0].status || "";
+        // Check if we're done
+        getMore = rspStatus.startsWith("Maximum number of profiles");
+        if (!getMore && rspStatus !== "") {
+          console.error(`Paged getPeople aborted after ${callCount} calls when API returned status: `, rspStatus);
+          showError(
+            `We received an unexpected response when retrieving your CC7: ${rspStatus}<br>It might help to try again later.`
+          );
+          return null;
         }
-        // add to peopleObjectArray
-        peopleObjectArray = peopleObjectArray.concat(arrayOfObjects);
+        const people = apiResult[0]?.people;
+        let restructuredResult;
+        if (people) {
+          restructuredResult = Object.keys(people).reduce((acc, key) => {
+            const entry = people[key];
+            acc[key] = {
+              ...entry,
+              Degrees: entry.Meta.Degrees,
+            };
+            delete acc[key].Meta;
+            return acc;
+          }, {});
 
-        start += limit;
-      } else {
-        getMore = false;
+          let arrayOfObjects = Object.keys(restructuredResult).map((key) => {
+            return restructuredResult[key];
+          });
+          peopleCount += arrayOfObjects.length;
+
+          if (GENERATE_DELTA_FOR_TESTING && arrayOfObjects.length > 1) {
+            // Remove a random profile from the list so we can be assured of a change in the CC7
+            // Pick a number between 1 and (number of profiles in the list) - 1
+            const i = Math.floor(Math.random() * arrayOfObjects.length - 2) + 1;
+            console.log(`Removing profile ${i} for testing purposes`, arrayOfObjects[i]);
+            arrayOfObjects = arrayOfObjects.toSpliced(i, 1);
+          }
+          // add to peopleObjectArray
+          peopleObjectArray = peopleObjectArray.concat(arrayOfObjects);
+
+          start += limit;
+        } else {
+          getMore = false;
+        }
       }
+      const degreeWords =
+        fromDegree == toDegree ? `at degree ${toDegree}` : `with degrees ${fromDegree} to ${toDegree}`;
+      console.log(`Retrieved ${peopleCount} CC7 profile IDs ${degreeWords} in ${callCount} API calls`);
     }
+
     return peopleObjectArray;
   } catch (error) {
     console.error("Error fetching data from API:", error);
@@ -886,7 +906,10 @@ function appendDetailsToContainer(container, idsByDate, details, headingTail) {
       const text = person
         ? `${person.FullName} ${displayDates(person)}${person.redirectedFrom ? " (merged)" : ""}`
         : `Profile ${el.Name ? el.Name : el.Id} (Private, or deleted from WikiTree)`;
-      const link = $("<a>").attr("href", `https://${mainDomain}/wiki/${el.Name}`).attr("target", "_blank").text(text);
+      const link = $("<a>")
+        .attr("href", `https://${mainDomain}/wiki/${el.Name ? el.Name : el.Id}`)
+        .attr("target", "_blank")
+        .text(text);
       const degree = $(
         `<span title="${what} at ${el.Degrees} degree${el.Degrees > 1 ? "s" : ""}"> [${el.Degrees}]</span>`
       );
