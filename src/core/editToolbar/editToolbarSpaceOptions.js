@@ -22,7 +22,7 @@ export default [
         title: "Add any category",
         hint: "Add any category using search for words in name and parent categories.",
         call: wtPlus,
-        params: { action: "AddCIBCategory", data: "Category" },
+        params: { action: "AddCIBCategory", data: "Any" },
       },
     ],
   },
