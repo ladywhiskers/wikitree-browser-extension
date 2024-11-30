@@ -9,7 +9,6 @@ import { assignPersonNames } from "../auto_bio/auto_bio";
 import { addFiltersToWikitables, repositionFilterRow } from "../table_filters/table_filters";
 import { getProfile } from "../distanceAndRelationship/distanceAndRelationship";
 import "jquery-ui/ui/widgets/draggable";
-import { set } from "date-fns";
 
 async function initUnconnectedBranch() {
   const profileID = $("a.pureCssMenui0 span.person").text();
