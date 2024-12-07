@@ -61,6 +61,15 @@ function getTheUsersNumId() {
   return USE_TEST_USER ? TEST_USER_ID : getUserNumId();
 }
 
+function getCC7Total() {
+  // We retrieve the actual CC7 Total from the "My WikiTree/Connections" menu item, present when the user is logged in
+  // and on any WT page except G2G.
+  const connText = $('a[href*="Special:MyConnections"].pureCssMenui').text();
+  if (!connText) return null;
+  const m = connText.match(/\d+/);
+  return m ? m[0] : null;
+}
+
 class Database {
   constructor(userId, userNumId) {
     // Check if an instance already exists
@@ -302,6 +311,7 @@ Sorry about that.">Log in to initialize WBE CC7 Changes</button>
 </div>`);
 
 let db;
+let partial = false;
 
 // Function to show login popup
 function showLoginPopup() {
@@ -760,7 +770,9 @@ async function showStoredDeltas(data, container) {
   working.remove();
   const cc7count = data.deltasSinceLastVisit.length == 0 ? 0 : data.deltasSinceLastVisit[0].cc7count || 0;
   if (cc7count != 0) {
-    container.append($(`<p>Current CC7 size (excluding private profiles): ${cc7count}</p>`));
+    container.append(
+      $(`<p>Current${partial ? " retrieved" : ""} CC7 size, excluding private profiles: ${cc7count}</p>`)
+    );
   }
   if (allDetailsSinceLastVisit.size === 0 && allDetailsWithinLastMonth.size === 0) {
     container.append($("<p>No changes since you last checked.</p>"));
@@ -880,7 +892,9 @@ function appendDetailsToContainer(container, idsByDate, details, headingTail) {
       if (deltaHasChanges(changesOnDate)) {
         let hdr =
           `<p>Detected on ${dateFormatter.format(new Date(date))}` +
-          (changesOnDate.cc7count ? `<br>CC7 size (excl. private profiles): ${changesOnDate.cc7count}` : "") +
+          (changesOnDate.cc7count
+            ? `<br>${partial ? "Retrieved " : ""}CC7 size, excluding private profiles: ${changesOnDate.cc7count}`
+            : "") +
           "</p>";
         const dateHeader = $(hdr);
         container.append(dateHeader);
@@ -935,15 +949,28 @@ function createCC7DeltaContainer() {
   const container = $("<div>").attr("id", "cc7DeltaContainer");
   const heading = $("<h2>").text("CC7 Changes");
   const closeBtn = $("<x>&times;</x>");
+  const connTotal = getCC7Total();
   closeBtn.on("click", closeCC7DeltaContainer);
+  container.append(closeBtn, heading);
+  if (connTotal !== null) {
+    let totalText = `Current CC7 size: ${connTotal}`;
+    partial = connTotal >= 10000;
+    if (partial) {
+      totalText +=
+        "<br>Your CC7 has reached such a size that we can no longer retrieve all of it. " +
+        "We do get the latest additions and removals, but at the cost of older, unchanged profiles still " +
+        "in your CC7. You will therefore see removals being reported that are actually NOT removed, but " +
+        "are just not being returned when we attempt to get the detail of your CC7.";
+    }
+    container.append($("<p>").html(totalText));
+  }
   container.append(
-    closeBtn,
-    heading,
     working.css({
       display: "block",
       margin: "auto",
     })
   );
+
   return container;
 }
 
