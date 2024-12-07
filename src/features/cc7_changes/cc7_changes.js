@@ -960,7 +960,7 @@ function createCC7DeltaContainer() {
         "<br>Your CC7 has reached such a size that we can no longer retrieve all of it. " +
         "We do get the latest additions and removals, but at the cost of older, unchanged profiles still " +
         "in your CC7. You will therefore see removals being reported that are actually NOT removed, but " +
-        "are just not being returned when we attempt to get the detail of your CC7.";
+        "are just not being returned when we attempt to get all of your CC7.";
     }
     container.append($("<p>").html(totalText));
   }
