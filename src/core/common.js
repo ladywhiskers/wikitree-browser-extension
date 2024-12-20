@@ -1347,3 +1347,87 @@ function dateObject(dateStr) {
   }
   return new Date(Date.UTC(...parts));
 }
+
+//////////////////// For Notables Project
+
+function toggleEnhancedEditor(callback) {
+  const toggleButton = $("#toggleMarkupColor");
+
+  // Check if the Enhanced Editor is on
+  const isEnhancedEditorOn = toggleButton.val() === "Turn Off Enhanced Editor";
+
+  if (isEnhancedEditorOn) {
+    toggleButton.trigger("click"); // Turn it off
+  }
+
+  // Run the callback
+  if (typeof callback === "function") {
+    callback();
+  }
+
+  // Turn it back on if it was on
+  if (isEnhancedEditorOn) {
+    toggleButton.trigger("click");
+  }
+}
+
+function showPopupMessage(message) {
+  // Create and style the popup message div
+  const $message = $("<div>")
+    .text(message)
+    .css({
+      position: "fixed",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      padding: "20px",
+      backgroundColor: "#333",
+      color: "#fff",
+      fontSize: "18px",
+      borderRadius: "10px",
+      textAlign: "center",
+      zIndex: 9999,
+      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+    })
+    .hide() // Start hidden
+    .appendTo("body")
+    .fadeIn(300); // Fade in over 300ms
+
+  // Automatically fade out and remove after 2 seconds
+  setTimeout(() => {
+    $message.fadeOut(300, () => {
+      $message.remove();
+    });
+  }, 2000); // Adjust the delay as needed
+}
+
+async function replaceWikitableFromClipboard() {
+  try {
+    const clipboardText = await navigator.clipboard.readText();
+    const wikitableRegex = /{\|[\s\S]*?\|}/;
+
+    if (!wikitableRegex.test(clipboardText)) {
+      showPopupMessage("Clipboard does not contain a valid wikitable!");
+      return;
+    }
+
+    const currentText = $("#wpTextbox1").val();
+    const updatedText = currentText.replace(wikitableRegex, clipboardText);
+
+    $("#wpTextbox1").val(updatedText);
+    showPopupMessage("Wikitable replaced successfully!");
+  } catch (error) {
+    console.error("Failed to replace wikitable:", error);
+    showPopupMessage("An error occurred while processing the clipboard content.");
+  }
+}
+
+if (
+  window.location.href ==
+  "https://www.wikitree.com/index.php?title=Space:Notables_Project_Unconnected_Profiles&action=edit&WBEaction=UpdateTable"
+) {
+  toggleEnhancedEditor(() => {
+    replaceWikitableFromClipboard();
+    $("#wpSummary").val("Updated table");
+  });
+}
