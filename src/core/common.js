@@ -1350,27 +1350,6 @@ function dateObject(dateStr) {
 
 //////////////////// For Notables Project
 
-function toggleEnhancedEditor(callback) {
-  const toggleButton = $("#toggleMarkupColor");
-
-  // Check if the Enhanced Editor is on
-  const isEnhancedEditorOn = toggleButton.val() === "Turn Off Enhanced Editor";
-
-  if (isEnhancedEditorOn) {
-    toggleButton.trigger("click"); // Turn it off
-  }
-
-  // Run the callback
-  if (typeof callback === "function") {
-    callback();
-  }
-
-  // Turn it back on if it was on
-  if (isEnhancedEditorOn) {
-    toggleButton.trigger("click");
-  }
-}
-
 function showPopupMessage(message) {
   // Create and style the popup message div
   const $message = $("<div>")
@@ -1401,33 +1380,76 @@ function showPopupMessage(message) {
   }, 2000); // Adjust the delay as needed
 }
 
-async function replaceWikitableFromClipboard() {
+function toggleEnhancedEditor(callback) {
+  const toggleButton = $("#toggleMarkupColor");
+  const isEnhancedEditorOn = toggleButton.val() === "Turn Off Enhanced Editor";
+
+  if (isEnhancedEditorOn) {
+    // Trigger click to turn off CodeMirror
+    toggleButton.trigger("click").trigger("change");
+
+    // Wait until Enhanced Editor is fully off
+    const intervalId = setInterval(() => {
+      if (toggleButton.val() !== "Turn Off Enhanced Editor") {
+        clearInterval(intervalId); // Stop checking
+
+        // Execute the callback after toggling off
+        if (typeof callback === "function") {
+          callback(() => {
+            // Turn the Enhanced Editor back on after the operation
+            toggleButton.trigger("click").trigger("change");
+          });
+        }
+      }
+    }, 100); // Check every 100ms
+  } else {
+    if (typeof callback === "function") {
+      callback(() => {
+        // Turn the Enhanced Editor back on
+        toggleButton.trigger("click").trigger("change");
+      });
+    }
+  }
+}
+
+async function replaceWikitableFromClipboard(done) {
   try {
     const clipboardText = await navigator.clipboard.readText();
-    const wikitableRegex = /{\|[\s\S]*?\|}/;
 
-    if (!wikitableRegex.test(clipboardText)) {
-      showPopupMessage("Clipboard does not contain a valid wikitable!");
+    const wikitableRegex = /{\|[\s\S]*?\|}/;
+    const currentText = $("#wpTextbox1").val();
+
+    if (!wikitableRegex.test(currentText)) {
+      showPopupMessage("No wikitable found in the current text!");
+      done(); // Signal completion
       return;
     }
 
-    const currentText = $("#wpTextbox1").val();
+    if (!wikitableRegex.test(clipboardText)) {
+      showPopupMessage("Clipboard does not contain a valid wikitable!");
+      done(); // Signal completion
+      return;
+    }
+
     const updatedText = currentText.replace(wikitableRegex, clipboardText);
 
     $("#wpTextbox1").val(updatedText);
+
     showPopupMessage("Wikitable replaced successfully!");
+    done(); // Signal completion
   } catch (error) {
     console.error("Failed to replace wikitable:", error);
     showPopupMessage("An error occurred while processing the clipboard content.");
+    done(); // Signal completion
   }
 }
 
 if (
-  window.location.href ==
+  window.location.href ===
   "https://www.wikitree.com/index.php?title=Space:Notables_Project_Unconnected_Profiles&action=edit&WBEaction=UpdateTable"
 ) {
-  toggleEnhancedEditor(() => {
-    replaceWikitableFromClipboard();
+  toggleEnhancedEditor((done) => {
+    replaceWikitableFromClipboard(done);
     $("#wpSummary").val("Updated table");
   });
 }
